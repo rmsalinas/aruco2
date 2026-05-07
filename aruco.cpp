@@ -110,9 +110,9 @@ std::vector<Marker>  MarkerDetector::detect(const cv::Mat &img,   const std::vec
         if(  ((approxCurve[2].x-approxCurve[3].x)*(approxCurve[2].x-approxCurve[3].x) + (approxCurve[2].y-approxCurve[3].y)*(approxCurve[2].y-approxCurve[3].y))<minSizeSq) continue;
         if(  ((approxCurve[3].x-approxCurve[0].x)*(approxCurve[3].x-approxCurve[0].x) + (approxCurve[3].y-approxCurve[0].y)*(approxCurve[3].y-approxCurve[0].y))<minSizeSq) continue;
         // // add the points
-        Marker marker;marker.reserve(4);
+        Marker marker;marker.corners.reserve(4);
         for (int j = 0; j < 4; j++)
-            marker.emplace_back( cv::Point2f( approxCurve[j].x,approxCurve[j].y));
+            marker.corners.emplace_back( cv::Point2f( approxCurve[j].x,approxCurve[j].y));
         //sort corner in clockwise direction
         marker=sort(marker);
         candidatesOut->push_back(marker);
@@ -132,8 +132,8 @@ std::vector<Marker>  MarkerDetector::detect(const cv::Mat &img,   const std::vec
             for(int i=0;i<int(params.maxAttemptsPerCandidate) && marker.id==-1;i++){
                 //if not first attempt, we may wanna produce small random alteration of the corners
                 auto marker2=marker;
-                if( i!=0) for(int c=0;c<4;c++) {marker2[c].x+=rand.gaussian(0.75);marker2[c].y+=rand.gaussian(0.75);}//if not first, alter corner location
-                _private::Homographer hom(marker2);
+                if( i!=0) for(int c=0;c<4;c++) {marker2.corners[c].x+=rand.gaussian(0.75);marker2.corners[c].y+=rand.gaussian(0.75);}//if not first, alter corner location
+                _private::Homographer hom(marker2.corners);
                 for(int r=0;r<bits.rows;r++){
                     for(int c=0;c<bits.cols;c++){
                         bits.at<uchar>(r,c)=uchar(0.5+getSubpixelValue(bwimage,hom(cv::Point2f(  float(c+0.5) / float(bits.cols) ,  float(r+0.5) / float(bits.rows)  ))));
@@ -149,7 +149,7 @@ std::vector<Marker>  MarkerDetector::detect(const cv::Mat &img,   const std::vec
                 //now, analyze the inner code to see it if is a marker. If so, rotate to have the points properly sorted
                 int nrotations=0;
                 if(getMarkerId(bits,marker.id,nrotations,params,dict)==0) continue;
-                std::rotate(marker.begin(),marker.begin() + 4 - nrotations,marker.end());
+                std::rotate(marker.corners.begin(),marker.corners.begin() + 4 - nrotations,marker.corners.end());
             }
             if(marker.id!=-1) {
                 marker.dict= dicts[di];
@@ -170,7 +170,7 @@ std::vector<Marker>  MarkerDetector::detect(const cv::Mat &img,   const std::vec
                 {
                     if (currDirMarkerDetected[i].id == currDirMarkerDetected[j].id )
                     {
-                        auto res=isInto(currDirMarkerDetected[i],currDirMarkerDetected[j]);
+                        auto res=isInto(currDirMarkerDetected[i].corners,currDirMarkerDetected[j].corners);
                         if( res==1)toRemove[i]=true;
                         else if( res==2)toRemove[j]=true;
 
@@ -187,14 +187,16 @@ std::vector<Marker>  MarkerDetector::detect(const cv::Mat &img,   const std::vec
 
     ////// finally subpixel corner refinement
     if(DetectedMarkers.size()>0){
+        // TODO: cols/cols always equals 1 — halfwsize is always 4 regardless of image resolution
+#warning "NEEDS TO BE CHANGED"
         int halfwsize= 4*float(bwimage.cols)/float(bwimage.cols) +0.5 ;
         std::vector<cv::Point2f> Corners;
         for (const auto &m:DetectedMarkers)
-            Corners.insert(Corners.end(), m.begin(),m.end());
+            Corners.insert(Corners.end(), m.corners.begin(),m.corners.end());
         cv::cornerSubPix(bwimage, Corners, cv::Size(halfwsize,halfwsize), cv::Size(-1, -1),cv::TermCriteria( cv::TermCriteria::MAX_ITER | cv::TermCriteria::EPS, 12, 0.005));
         // copy back to the markers
         for (unsigned int i = 0; i < DetectedMarkers.size(); i++)
-            for (int c = 0; c < 4; c++) DetectedMarkers[i][c] = Corners[i * 4 + c];
+            for (int c = 0; c < 4; c++) DetectedMarkers[i].corners[c] = Corners[i * 4 + c];
     }
     return DetectedMarkers;//DONE
 }
@@ -274,13 +276,13 @@ float MarkerDetector::getSubpixelValue(const cv::Mat &im_grey, const cv::Point2f
 Marker  MarkerDetector::sort( const  Marker &marker){
     Marker res_marker=marker;
     /// sort the points in anti-clockwise order
-    double dx1 = res_marker[1].x - res_marker[0].x;
-    double dy1 = res_marker[1].y - res_marker[0].y;
-    double dx2 = res_marker[2].x - res_marker[0].x;
-    double dy2 = res_marker[2].y - res_marker[0].y;
+    double dx1 = res_marker.corners[1].x - res_marker.corners[0].x;
+    double dy1 = res_marker.corners[1].y - res_marker.corners[0].y;
+    double dx2 = res_marker.corners[2].x - res_marker.corners[0].x;
+    double dy2 = res_marker.corners[2].y - res_marker.corners[0].y;
     double o = (dx1 * dy2) - (dy1 * dx2);
     // if the third point is in the left side, then sort in anti-clockwise order
-    if (o < 0.0)  std::swap(res_marker[1], res_marker[3]);
+    if (o < 0.0)  std::swap(res_marker.corners[1], res_marker.corners[3]);
     return res_marker;
 }
 

@@ -4,7 +4,6 @@
 #pragma once
 #include <opencv2/core.hpp>
 #include "aruco_dictionary.hpp"
-#include <optional>
 namespace cv :: aruco2 {
 
 /** @brief struct DetectorParameters is used by detectMarkers
@@ -17,22 +16,18 @@ struct CV_EXPORTS_W_SIMPLE DetectorParameters {
     //if you set a high value (std::numeric_limits<int>::max()) the algorithm behaves as the normal moore contour tracer
     float maxTimesRevisited=0.05; //1 equals tradional algo,
     /// number of bits of the marker border, i.e. marker border width (default 1).
-    float  markerBorderBits=1; //i do not see this useful. all dicts have 1 border bit but its used in opencv  aruco and I keep it here
+    int  markerBorderBits=1; //i do not see this useful. all dicts have 1 border bit but its used in opencv  aruco and I keep it here
     double errorCorrectionRate=0;//The default 0.6 value in aruco opencv is very dangerous. It causes many false positives.
     double maxErroneousBitsInBorderRate=0;//maximum rate of erroneous bits in the border. Default 0 means no error allowed.
     bool detectInvertedMarker=false;//if the markers are printed in white over black background
 };
 /**
  * @brief A fiducial marker
- * It is a vector where each corner is a corner of the detected marker
  */
-class CV_EXPORTS_W Marker : public std::vector<cv::Point2f>
-{
-public:
-    // id of  the marker
-    int id=-1;
-    //id of the dict
-    DictionaryType dict=DictionaryType(-1);
+struct CV_EXPORTS_W_SIMPLE Marker {
+    CV_PROP_RW std::vector<cv::Point2f> corners;
+    CV_PROP_RW int id = -1;
+    CV_PROP_RW DictionaryType dict = DictionaryType(-1);
 };
 
 /** @brief Generate a canonical marker image
@@ -45,12 +40,12 @@ public:
  *
  * This function returns a marker image in its canonical form (i.e. ready to be printed)
  */
-CV_EXPORTS_W void generateImageMarker(const DictionaryType &dictionary, int id, int sidePixels, OutputArray img,
+CV_WRAP void generateImageMarker(const DictionaryType &dictionary, int id, int sidePixels, OutputArray img,
                                       int borderBits = 1);
 
 
 
-/** @brief Basic marker detection
+/** @brief Basic marker detection using a single dictionary
      *
      * @param image input image
      * @param detectorParams marker detection parameters
@@ -64,7 +59,7 @@ CV_EXPORTS_W void generateImageMarker(const DictionaryType &dictionary, int id, 
      */
 CV_WRAP std::vector<Marker> detectMarkers(InputArray image,DictionaryType dict=DICT_ARUCO_MIP_36h12,const DetectorParameters &detectorParams={});
 /**
- * @brief detectMarkers
+ * @brief Marker detection using a multiple dictionaries
  * @param image
  * @param dicts
  * @param detectorParams
@@ -84,7 +79,16 @@ CV_WRAP std::vector<Marker> detectMarkers(InputArray image,const std::vector<Dic
  * The marker borders and identifiers are drawn.
  * Useful for debugging purposes.
  */
-CV_EXPORTS_W void drawDetectedMarkers(InputOutputArray image, const std::vector<Marker> &markers, Scalar borderColor = Scalar(0, 255, 0));
+CV_WRAP void drawDetectedMarkers(InputOutputArray image, const std::vector<Marker> &markers, Scalar borderColor = Scalar(0, 255, 0));
+
+
+/**
+ * @brief   calculates the values imgPoints and objPoints that can be passed to solvePnp
+ * @param marker
+ * @param imgPoints
+ * @param objPoints
+ */
+CV_WRAP void getSolvePnpPoints(const Marker marker, OutputArray imgPoints,OutputArray objPoints);
 
 
 /** @brief Board of ArUco markers
@@ -96,34 +100,39 @@ CV_EXPORTS_W void drawDetectedMarkers(InputOutputArray image, const std::vector<
  * - The dictionary which indicates the type of markers of the board
  * - The identifier of all the markers in the board.
  */
-class CV_EXPORTS_W Board{
-
-        cv::Size bsize;
-        DictionaryType dict;
-        std::vector<int> ids;
-
-        std::vector<cv::Point2f> corners;
-        std::vector<Marker> markers;
+struct CV_EXPORTS_W_SIMPLE Board {
+    CV_PROP_RW cv::Size gridSize;
+    CV_PROP_RW DictionaryType dict;
+    CV_PROP_RW std::vector<int> ids;
+    CV_PROP_RW std::vector<Marker> markers;
 };
 
 /**
- * @brief detectBoard
- * @param image
- * @param bsize
- * @param dict
+ * @brief Board detection in an image
+ * @param image input image
+ * @param bsize board size
+ * @param dict board marker's dictionary
  * @param detectorParams
- * @param ids
+ * @param ids optional ids of the board
  * @return
  */
-CV_WRAP std::optional<Board> detectBoard(InputArray image,cv::Size bsize, DictionaryType dict, const DetectorParameters &detectorParams={},std::vector<int> ids={});
+CV_WRAP bool detectBoard(InputArray image, cv::Size gridSize, DictionaryType dict, CV_OUT Board &board, const DetectorParameters &detectorParams={}, std::vector<int> ids={});
 /**
- * @brief detectDiamons
+ * @brief Diamon detection
  * @param image
  * @param dict
  * @param detectorParams
  * @return
  */
 CV_WRAP std::vector<Board> detectDiamons(InputArray image, DictionaryType dict, const DetectorParameters &detectorParams={});
+
+/**
+ * @brief   calculates the values imgPoints and objPoints that can be passed to solvePnp
+ * @param marker
+ * @param imgPoints
+ * @param objPoints
+ */
+CV_WRAP void getSolvePnpPoints(const Board board, OutputArray imgPoints,OutputArray objPoints);
 
 
 }
