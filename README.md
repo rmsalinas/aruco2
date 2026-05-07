@@ -1,7 +1,12 @@
 # aruco2 — A Simpler ArUco for OpenCV 5
 
-A proposed replacement for the ArUco module in OpenCV 5.  
-The existing implementation works, but its API has accumulated complexity over the years that makes common tasks harder than they need to be.  This project explores a cleaner design.
+A proposed replacement for the ArUco module in OpenCV 5, by the original ArUco author.
+
+- **6.5× faster** detection engine based on [ArUco Nano](https://github.com/rmsalinas/aruco_nano)
+- **Simpler API** — one function call, results in a single `vector<Marker>` (no parallel vectors)
+- **Safer defaults** — `errorCorrectionRate=0` instead of the legacy 0.6 that causes false positives
+- **Multi-dictionary** detection in one pass
+- **Boards and diamonds** based on [ChArUco2](https://github.com/rmsalinas/charuco2) — double the marker density, twice the corners at 75% occlusion
 
 ---
 
