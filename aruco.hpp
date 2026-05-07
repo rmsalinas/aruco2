@@ -193,15 +193,16 @@ CV_WRAP void drawDetectedMarkers(InputOutputArray image, const std::vector<Marke
  *                   coordinates (CV_32FC3), with the marker centre at the origin and
  *                   half-unit side length (i.e. corners at ±0.5 in X and Y, Z=0)
  *
- * Scale `objPoints` by the known physical marker side length before calling solvePnP():
+ * @param markerSize  physical side length of the marker (e.g. metres); objPoints are scaled
+ *                    by this value.  Default 1.f returns unit-size points.
+ *
  * @code
  * cv::Mat rvec, tvec, imgPts, objPts;
- * cv::aruco2::getSolvePnpPoints(marker, imgPts, objPts);
- * objPts *= markerSideMeters;
+ * cv::aruco2::getSolvePnpPoints(marker, imgPts, objPts, 0.05f); // 5 cm marker
  * cv::solvePnP(objPts, imgPts, cameraMatrix, distCoeffs, rvec, tvec);
  * @endcode
  */
-CV_WRAP void getSolvePnpPoints(const Marker marker, OutputArray imgPoints, OutputArray objPoints);
+CV_WRAP void getSolvePnpPoints(const Marker marker, OutputArray imgPoints, OutputArray objPoints, float markerSize = 1.f);
 
 
 /** @brief Result of detecting a ChArUco2-style grid board.
@@ -268,15 +269,16 @@ CV_WRAP bool detectBoard(InputArray image, cv::Size gridSize, DictionaryType dic
  * @param imgPoints  output array of marker corner image coordinates for all detected markers (CV_32FC2)
  * @param objPoints  output array of corresponding 3-D object points in board coordinates (CV_32FC3).
  *                   The board origin is at the top-left marker corner; X points right, Y points
- *                   down, Z=0.  Units are marker-side lengths; scale by the physical marker size
- *                   before calling solvePnP().
+ *                   down, Z=0.
+ * @param markerSize  physical side length of one marker (e.g. metres); objPoints are scaled
+ *                    by this value.  Default 1.f returns unit-size points.
  *
  * Only detected markers are included, so `imgPoints` and `objPoints` are always the same length
  * even when the board is partially occluded.
  *
  * @sa getSolvePnpPoints(const Marker, OutputArray, OutputArray)
  */
-CV_WRAP void getSolvePnpPoints(const Board board, OutputArray imgPoints, OutputArray objPoints);
+CV_WRAP void getSolvePnpPoints(const Board board, OutputArray imgPoints, OutputArray objPoints, float markerSize = 1.f);
 
 /** @brief A detected ChArUco2-style diamond marker.
  *
@@ -288,8 +290,8 @@ CV_WRAP void getSolvePnpPoints(const Board board, OutputArray imgPoints, OutputA
  */
 struct CV_EXPORTS_W_SIMPLE Diamond {
     CV_PROP_RW cv::Vec4i id;                   ///< ids of the 4 constituent markers (clockwise from top-left)
-    CV_PROP_RW std::vector<Marker> markers;    ///< the 4 detected markers forming the diamond
     CV_PROP_RW DictionaryType dict;            ///< dictionary used for the 4 markers
+    CV_PROP_RW std::vector<Marker> markers;    ///< the 4 detected markers forming the diamond
 };
 
 
@@ -314,13 +316,14 @@ CV_WRAP std::vector<Diamond> detectDiamonds(InputArray image, DictionaryType dic
  * @param imgPoints  output array of marker corner image coordinates for all 4 markers (CV_32FC2)
  * @param objPoints  output array of corresponding 3-D object points in diamond coordinates
  *                   (CV_32FC3).  The origin is at the top-left marker corner; X points right,
- *                   Y points down, Z=0.  Units are marker-side lengths; scale by the physical
- *                   marker size before calling solvePnP().
+ *                   Y points down, Z=0.
+ * @param markerSize  physical side length of one marker (e.g. metres); objPoints are scaled
+ *                    by this value.  Default 1.f returns unit-size points.
  *
  * @sa getSolvePnpPoints(const Marker, OutputArray, OutputArray),
  *     getSolvePnpPoints(const Board, OutputArray, OutputArray)
  */
-CV_WRAP void getSolvePnpPoints(const Diamond diamond, OutputArray imgPoints, OutputArray objPoints);
+CV_WRAP void getSolvePnpPoints(const Diamond diamond, OutputArray imgPoints, OutputArray objPoints, float markerSize = 1.f);
 
 //! @}
 

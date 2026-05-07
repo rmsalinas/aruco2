@@ -67,8 +67,8 @@ struct Board {
 
 struct Diamond {
     cv::Vec4i id;                   // ids of the 4 constituent markers (clockwise from top-left)
-    std::vector<Marker> markers;    // the 4 detected markers forming the diamond
     DictionaryType dict;
+    std::vector<Marker> markers;    // the 4 detected markers forming the diamond
 };
 ```
 
@@ -139,17 +139,15 @@ cv::imwrite("marker_42.png", markerImg);
 
 ### Pose estimation from a single marker
 
-`getSolvePnpPoints` returns object points with unit side length.  
-Scale by the physical marker size before calling `solvePnP`:
+`getSolvePnpPoints` takes an optional `markerSize` parameter (physical side length, e.g. in metres).
+Pass it directly — no manual scaling needed:
 
 ```cpp
-double markerSideMeters = 0.05; // 5 cm
 cv::Mat cameraMatrix, distCoeffs; // from calibration
 
 for (const auto &m : cv::aruco2::detectMarkers(image)) {
     cv::Mat imgPts, objPts, rvec, tvec;
-    cv::aruco2::getSolvePnpPoints(m, imgPts, objPts);
-    objPts *= markerSideMeters;
+    cv::aruco2::getSolvePnpPoints(m, imgPts, objPts, 0.05f); // 5 cm marker
     cv::solvePnP(objPts, imgPts, cameraMatrix, distCoeffs, rvec, tvec);
 }
 ```
@@ -174,8 +172,7 @@ if (found) {
     std::cout << "Detected " << board.markers.size() << " of 12 markers\n";
 
     cv::Mat imgPts, objPts;
-    cv::aruco2::getSolvePnpPoints(board, imgPts, objPts);
-    objPts *= markerSideMeters;
+    cv::aruco2::getSolvePnpPoints(board, imgPts, objPts, 0.05f); // 5 cm markers
     // pass to solvePnP as usual
 }
 ```
@@ -201,8 +198,7 @@ for (const auto &d : diamonds) {
               << d.id[2] << " " << d.id[3] << "\n";
 
     cv::Mat imgPts, objPts;
-    cv::aruco2::getSolvePnpPoints(d, imgPts, objPts);
-    objPts *= markerSideMeters;
+    cv::aruco2::getSolvePnpPoints(d, imgPts, objPts, 0.05f); // 5 cm markers
     // pass to solvePnP as usual
 }
 ```
