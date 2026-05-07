@@ -220,6 +220,65 @@ auto markers = cv::aruco2::detectMarkers(image, cv::aruco2::DICT_6X6_250, params
 
 ---
 
+## Implementation
+
+### Marker detection — based on ArUco Nano
+
+The marker detector is based on [ArUco Nano](https://github.com/rmsalinas/aruco_nano), a
+high-performance single-header detector described in:
+
+> R. Muñoz-Salinas et al., *"ArUco Nano: a simpler, faster, and more reliable fiducial marker
+> detector"*, SoftwareX, 2026.
+
+Key advantages over the standard OpenCV ArUco detector:
+
+- **Up to 6.5× faster** than OpenCV ArUco single-threaded, **2× faster** than its
+  multi-threaded mode (benchmarked on Intel Core i7-13700H)
+
+| Resolution | aruco2 | OpenCV ArUco | Speedup |
+|---|---|---|---|
+| 1 MP  |   6.68 ms |  43.46 ms | 6.5× |
+| 4 MP  |  22.93 ms | 125.00 ms | 5.4× |
+| 16 MP | 101.67 ms | 504.27 ms | 4.9× |
+
+- **Visited-aware contour tracer** — prunes revisited pixels to suppress noise and thin
+  structures, reducing false candidates before any dictionary lookup
+- **SIMD-accelerated** via OpenCV universal intrinsics
+- **Multi-attempt corner perturbation** — slightly jitters corners on retry attempts to
+  improve robustness under perspective distortion
+
+---
+
+### Boards and diamonds — based on ChArUco2
+
+The board and diamond design is based on [ChArUco2](https://github.com/rmsalinas/charuco2),
+described in:
+
+> R. Muñoz-Salinas et al., *"ChArUco2: Enhanced Calibration Boards with Dual Black-and-White
+> Marker Detection"*, SoftwareX, submitted.
+
+Key advantages over standard OpenCV ChArUco:
+
+- **Double marker density** — every square carries a marker (standard on black, inverted on
+  white) versus ~half the squares in standard ChArUco
+- **Larger markers** — each occupies the full square area with no white border, improving
+  detection range under challenging lighting
+- **More reference corners** — (N+1)×(M+1) observable corners including the board border,
+  versus (N−1)×(M−1) inner corners in standard ChArUco
+- **Better diamond** — the 2×2 marker block provides more observations and a larger geometric
+  baseline than the standard 4-corner diamond
+
+| Occlusion | ChArUco corners | ChArUco2 corners |
+|---|---|---|
+| 0%  | 32 |  60 |
+| 25% | 24 |  48 |
+| 50% | 16 |  36 |
+| 75% |  4 |  12 |
+
+*(9×5 board, 26 mm squares, DICT_ARUCO_MIP_36h12)*
+
+---
+
 ## Building
 
 Requires OpenCV 4 or 5.
