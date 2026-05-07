@@ -154,15 +154,38 @@ struct CV_EXPORTS_W_SIMPLE Marker {
  * @param img         output grayscale image (CV_8UC1)
  * @param borderBits  width of the black border in marker bits (default 1)
  *
- * Example — save a 200×200 px image of marker 42 from the 6×6 250-code dictionary:
  * @code
  * cv::Mat markerImg;
- * cv::aruco2::generateImageMarker(DICT_6X6_250, 42, 200, markerImg);
+ * cv::aruco2::generateMarkerImage(DICT_6X6_250, 42, 200, markerImg);
  * cv::imwrite("marker_42.png", markerImg);
  * @endcode
  */
-CV_WRAP void generateImageMarker(const DictionaryType &dictionary, int id, int sidePixels,
+CV_WRAP void generateMarkerImage(const DictionaryType &dictionary, int id, int sidePixels,
                                  OutputArray img, int borderBits = 1);
+
+/** @brief Generate a ChArUco2-style diamond image ready for printing.
+ *
+ * A diamond is a 2×2 block of ArUco markers following the ChArUco2 design: standard markers
+ * on black squares and inverted markers on white squares.  The four marker ids are arranged
+ * in clockwise order from the top-left, matching the `Diamond::id` field returned by
+ * detectDiamonds().
+ *
+ * @param dictionary    predefined dictionary for all four markers
+ * @param ids           ids of the 4 constituent markers in clockwise order from top-left
+ * @param markerSizePix side length of each individual marker in pixels (default 100);
+ *                      the output image will be 2×markerSizePix × 2×markerSizePix pixels
+ * @param img           output grayscale image (CV_8UC1)
+ *
+ * @code
+ * cv::Mat diamondImg;
+ * cv::aruco2::generateDiamondImage(DICT_6X6_250, {10, 11, 12, 13}, 100, diamondImg);
+ * cv::imwrite("diamond.png", diamondImg);
+ * @endcode
+ *
+ * Pass the same `dictionary` and `ids` to detectDiamonds() for detection.
+ */
+CV_WRAP void generateDiamondImage(const DictionaryType &dictionary, const cv::Vec4i &ids,
+                                  int markerSizePix, OutputArray img);
 
 
 /** @brief Detect ArUco markers in an image using a single dictionary.

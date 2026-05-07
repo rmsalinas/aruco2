@@ -136,9 +136,20 @@ Each marker is drawn with a coloured outline, the id at its centre, and a dot on
 
 ```cpp
 cv::Mat markerImg;
-cv::aruco2::generateImageMarker(cv::aruco2::DICT_6X6_250, 42, 300, markerImg);
+cv::aruco2::generateMarkerImage(cv::aruco2::DICT_6X6_250, 42, 300, markerImg);
 cv::imwrite("marker_42.png", markerImg);
 ```
+
+### Generate a diamond image
+
+```cpp
+cv::Mat diamondImg;
+cv::aruco2::generateDiamondImage(cv::aruco2::DICT_6X6_250, {10, 11, 12, 13}, 100, diamondImg);
+cv::imwrite("diamond.png", diamondImg);
+```
+
+The four ids are arranged clockwise from the top-left, matching the `Diamond::id` field
+returned by `detectDiamonds()`.
 
 ---
 
@@ -303,6 +314,7 @@ cmake --build build
 | Multi-dictionary detection | done |
 | Draw detected markers | done |
 | Generate marker images | done |
+| Generate diamond images | in progress |
 | Pose estimation — single marker | done |
 | Generate board images | done |
 | Board detection | in progress |
