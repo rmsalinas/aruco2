@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 
 # 1. Project name and language
-project(aruconano_perf LANGUAGES CXX)
+project(aruco2 LANGUAGES CXX)
 
 # 2. Set the C++ standard
 set(CMAKE_CXX_STANDARD 17)
@@ -23,12 +23,10 @@ endif()
 find_package(OpenCV REQUIRED)
 
 # 5. Add Executable
-add_executable(testperf testperf.cpp aruco_nano.h json.hpp)
+add_executable(test test.cpp aruco.hpp aruco.cpp aruco_dictionary.hpp aruco_dictionary.cpp)
 
 # 6. Link Libraries
-target_link_libraries(testperf PRIVATE ${OpenCV_LIBS})
-
- 
+target_link_libraries(test PRIVATE ${OpenCV_LIBS})
 
 
 
