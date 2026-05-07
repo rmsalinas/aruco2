@@ -204,19 +204,40 @@ CV_WRAP void drawDetectedMarkers(InputOutputArray image, const std::vector<Marke
 CV_WRAP void getSolvePnpPoints(const Marker marker, OutputArray imgPoints, OutputArray objPoints);
 
 
-/** @brief A detected grid board of ArUco markers.
+/** @brief Result of detecting a ChArUco2-style grid board.
  *
- * Returned by detectBoard().  `gridSize` describes the layout; `markers` contains only the
- * subset of board markers that were actually found in the image.
+ * Follows the ChArUco2 design: every square carries an ArUco marker (standard markers on black
+ * squares, inverted markers on white squares), yielding N×M markers on an N×M board and
+ * (N+1)×(M+1) observable intersection corners including the board border.
+ *
+ * `markers` holds the detected ArUco markers (a subset of all board markers when the board is
+ * partially occluded).  Use getSolvePnpPoints() to obtain the corresponding image and object
+ * point arrays for solvePnP().
  *
  * @sa detectBoard, getSolvePnpPoints(const Board, OutputArray, OutputArray)
  */
 struct CV_EXPORTS_W_SIMPLE Board {
     CV_PROP_RW cv::Size gridSize;              ///< board dimensions: width × height in markers
     CV_PROP_RW DictionaryType dict;            ///< dictionary used for all markers on the board
-    CV_PROP_RW std::vector<int> ids;           ///< ids of the detected markers
     CV_PROP_RW std::vector<Marker> markers;    ///< detected markers (subset of the full board)
 };
+
+/** @brief Generate a grid board image ready for printing.
+ *
+ * @param img          output grayscale image (CV_8UC1) containing the full board
+ * @param boardSize    board layout as columns × rows (e.g. `cv::Size(4, 3)`)
+ * @param dict         dictionary used for the markers
+ * @param markerSizePix  side length of each marker in pixels (default 50);
+ *                     the output image will be `boardSize.width * markerSizePix` ×
+ *                     `boardSize.height * markerSizePix` pixels
+ * @param ids          optional custom marker id list in row-major order;
+ *                     if empty, ids 0…(cols*rows−1) are used
+ *
+ * Markers are laid out in row-major order with no gap between them.
+ * Pass the same `boardSize`, `dict`, and `ids` to detectBoard() for detection.
+ */
+CV_WRAP void generateBoardImage(OutputArray img, Size boardSize, DictionaryType dict,
+                                int markerSizePix = 50, std::vector<int> ids = {});
 
 
 /** @brief Detect a rectangular grid board of ArUco markers.
@@ -240,32 +261,66 @@ CV_WRAP bool detectBoard(InputArray image, cv::Size gridSize, DictionaryType dic
                          std::vector<int> ids = {});
 
 
-/** @brief Detect ArUco Diamond markers in an image.
- *
- * A diamond marker is a special board of four ArUco markers arranged in a 2×2 rhombus pattern.
- * Unlike standard grid boards, diamonds can encode four independent ids and are robust at
- * greater distances due to the larger effective border.
- *
- * @param image        input image (grayscale or BGR)
- * @param dict         dictionary used to print the diamond markers
- * @param detectorParams  detection tuning parameters
- * @return             vector of detected diamond boards; empty if none found
- */
-CV_WRAP std::vector<Board> detectDiamonds(InputArray image, DictionaryType dict,
-                                          const DetectorParameters &detectorParams = {});
-
 
 /** @brief Compute image and object points for a detected board to pass to solvePnP().
  *
  * @param board      a detected board returned by detectBoard()
- * @param imgPoints  output array of image-plane corner coordinates for all detected markers (CV_32FC2)
- * @param objPoints  output array of corresponding 3-D object points in board coordinates (CV_32FC3),
- *                   with the board origin at the top-left marker centre and axes aligned to the grid.
- *                   Units are marker-side lengths; scale by the physical marker size before solvePnP().
+ * @param imgPoints  output array of marker corner image coordinates for all detected markers (CV_32FC2)
+ * @param objPoints  output array of corresponding 3-D object points in board coordinates (CV_32FC3).
+ *                   The board origin is at the top-left marker corner; X points right, Y points
+ *                   down, Z=0.  Units are marker-side lengths; scale by the physical marker size
+ *                   before calling solvePnP().
+ *
+ * Only detected markers are included, so `imgPoints` and `objPoints` are always the same length
+ * even when the board is partially occluded.
  *
  * @sa getSolvePnpPoints(const Marker, OutputArray, OutputArray)
  */
 CV_WRAP void getSolvePnpPoints(const Board board, OutputArray imgPoints, OutputArray objPoints);
+
+/** @brief A detected ChArUco2-style diamond marker.
+ *
+ * A diamond is a 2×2 block of ArUco markers (standard on black squares, inverted on white).
+ * Its identity is the combination of the four constituent marker ids, accessible via `id`
+ * (as a `Vec4i` convenience field) or individually through each `markers[i].id`.
+ *
+ * @sa detectDiamonds, getSolvePnpPoints(const Diamond, OutputArray, OutputArray)
+ */
+struct CV_EXPORTS_W_SIMPLE Diamond {
+    CV_PROP_RW cv::Vec4i id;                   ///< ids of the 4 constituent markers (clockwise from top-left)
+    CV_PROP_RW std::vector<Marker> markers;    ///< the 4 detected markers forming the diamond
+    CV_PROP_RW DictionaryType dict;            ///< dictionary used for the 4 markers
+};
+
+
+/** @brief Detect ChArUco2-style diamond markers in an image.
+ *
+ * A diamond is a 2×2 block of ArUco markers (standard on black squares, inverted on white).
+ * Each detected Diamond carries the 4 constituent Marker objects and their combined id as a
+ * `Vec4i` for convenient access.
+ *
+ * @param image        input image (grayscale or BGR)
+ * @param dict         dictionary used to print the diamond markers
+ * @param detectorParams  detection tuning parameters
+ * @return             vector of detected Diamond objects; empty if none found
+ */
+CV_WRAP std::vector<Diamond> detectDiamonds(InputArray image, DictionaryType dict,
+                                          const DetectorParameters &detectorParams = {});
+
+
+/** @brief Compute image and object points for a detected diamond to pass to solvePnP().
+ *
+ * @param diamond    a detected diamond returned by detectDiamonds()
+ * @param imgPoints  output array of marker corner image coordinates for all 4 markers (CV_32FC2)
+ * @param objPoints  output array of corresponding 3-D object points in diamond coordinates
+ *                   (CV_32FC3).  The origin is at the top-left marker corner; X points right,
+ *                   Y points down, Z=0.  Units are marker-side lengths; scale by the physical
+ *                   marker size before calling solvePnP().
+ *
+ * @sa getSolvePnpPoints(const Marker, OutputArray, OutputArray),
+ *     getSolvePnpPoints(const Board, OutputArray, OutputArray)
+ */
+CV_WRAP void getSolvePnpPoints(const Diamond diamond, OutputArray imgPoints, OutputArray objPoints);
 
 //! @}
 
