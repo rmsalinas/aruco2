@@ -417,7 +417,27 @@ std::vector<Marker> detectMarkers(InputArray image,const std::vector<DictionaryT
 }
 std::vector<Marker> detectMarkers(InputArray image,DictionaryType dict,const DetectorParameters &detectorParams){
     return MarkerDetector::detect(image.getMat(),{dict},detectorParams);
+}
 
+void drawDetectedMarkers(InputOutputArray _image, const std::vector<Marker> &markers, Scalar borderColor) {
+    cv::Mat image = _image.getMat();
+    Scalar cornerColor(255 - borderColor[0], borderColor[1], borderColor[2]);
+    Scalar textColor  (255 - borderColor[0], 255 - borderColor[1], 255 - borderColor[2]);
+
+    for (const auto &marker : markers) {
+        if (marker.corners.size() != 4) continue;
+        // draw 4 sides
+        for (int j = 0; j < 4; j++)
+            cv::line(image, cv::Point(marker.corners[j]), cv::Point(marker.corners[(j+1)%4]), borderColor, 1);
+        // highlight first corner to show orientation
+        cv::circle(image, cv::Point(marker.corners[0]), 3, cornerColor, -1);
+        // draw id at the marker center
+        cv::Point2f center(0, 0);
+        for (const auto &c : marker.corners) center += c;
+        center *= 0.25f;
+        cv::putText(image, std::to_string(marker.id), cv::Point(center),
+                    cv::FONT_HERSHEY_SIMPLEX, 0.5, textColor, 2);
+    }
 }
 
 }

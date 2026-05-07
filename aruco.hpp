@@ -4,135 +4,269 @@
 #pragma once
 #include <opencv2/core.hpp>
 #include "aruco_dictionary.hpp"
+
 namespace cv :: aruco2 {
 
-/** @brief struct DetectorParameters is used by detectMarkers
+//! @addtogroup objdetect_aruco
+//! @{
+
+/** @brief Detection parameters for detectMarkers() and detectBoard().
+ *
+ * All parameters have defaults that work well for standard printed markers under normal lighting.
+ * Tune only when detection fails or produces false positives in your specific setup.
  */
 struct CV_EXPORTS_W_SIMPLE DetectorParameters {
-    int boxFilterSize=15,thres=3; //values for adaptive thresholding
-    int minSize=10;//minimum size of a contour side to be considered as a marker candidate
-    int maxAttemptsPerCandidate=5;//number of attempts to identify a candidate by slightly altering the corners
-    // [0,1] ; maximum number of times a contour can revisit any of its pixels (1 is the minimum which is the starting point)
-    //if you set a high value (std::numeric_limits<int>::max()) the algorithm behaves as the normal moore contour tracer
-    float maxTimesRevisited=0.05; //1 equals tradional algo,
-    /// number of bits of the marker border, i.e. marker border width (default 1).
-    int  markerBorderBits=1; //i do not see this useful. all dicts have 1 border bit but its used in opencv  aruco and I keep it here
-    double errorCorrectionRate=0;//The default 0.6 value in aruco opencv is very dangerous. It causes many false positives.
-    double maxErroneousBitsInBorderRate=0;//maximum rate of erroneous bits in the border. Default 0 means no error allowed.
-    bool detectInvertedMarker=false;//if the markers are printed in white over black background
+
+    /** @brief Size of the box filter kernel used for adaptive thresholding (pixels, must be odd).
+     *
+     * Larger values tolerate more uneven lighting but may merge nearby markers.
+     * Default: 15.
+     */
+    CV_PROP_RW int boxFilterSize = 15;
+
+    /** @brief Threshold offset applied after the box filter subtraction.
+     *
+     * A pixel is considered foreground if `boxFilter(p) - p > thres`.
+     * Increase to suppress noise; decrease to detect faint borders.
+     * Default: 3.
+     */
+    CV_PROP_RW int thres = 3;
+
+    /** @brief Minimum side length (pixels) for a contour to be considered a marker candidate.
+     *
+     * Contour sides shorter than this are discarded early.
+     * Default: 10.
+     */
+    CV_PROP_RW int minSize = 10;
+
+    /** @brief Number of attempts to identify a candidate by slightly perturbing its corners.
+     *
+     * On each attempt after the first, Gaussian noise (σ=0.75 px) is added to the corners
+     * before re-sampling the bits.  Improves robustness near perspective extremes.
+     * Default: 5.
+     */
+    CV_PROP_RW int maxAttemptsPerCandidate = 5;
+
+    /** @brief Controls how aggressively the contour tracer prunes revisited paths.
+     *
+     * Expressed as a fraction of the total contour length [0, 1].  A contour is discarded
+     * if the number of already-visited pixels exceeds `maxTimesRevisited * contourLength`.
+     * - 0.05 (default): filters most noise and thin structures efficiently.
+     * - 1.0 : behaves like a standard Moore neighbour tracer (no pruning).
+     *
+     * Lower values speed up detection and reduce false candidates at the cost of occasionally
+     * missing very distorted markers.
+     */
+    CV_PROP_RW float maxTimesRevisited = 0.05f;
+
+    /** @brief Width of the mandatory black border around each marker, in bits.
+     *
+     * Almost all standard dictionaries use 1 border bit.  Kept for compatibility with
+     * custom dictionaries that deviate from this convention.
+     * Default: 1.
+     */
+    CV_PROP_RW int markerBorderBits = 1;
+
+    /** @brief Fraction of `maxCorrectionBits` to use when matching a candidate against the dictionary.
+     *
+     * A candidate is accepted if its Hamming distance to the nearest dictionary entry is at most
+     * `floor(maxCorrectionBits * errorCorrectionRate)`.
+     * - 0 (default): no bit errors tolerated — lowest false-positive rate.
+     * - 1.0: use the full error-correction capacity of the dictionary.
+     *
+     * @warning The legacy OpenCV ArUco default of 0.6 produces many false positives in cluttered
+     * scenes.  Raise this only if you need tolerance against printing or lighting artefacts and
+     * accept the trade-off.
+     */
+    CV_PROP_RW double errorCorrectionRate = 0;
+
+    /** @brief Maximum fraction of border bits allowed to be wrong before rejecting a candidate.
+     *
+     * Set to 0 (default) to require a perfect black border.  Small non-zero values (e.g. 0.05)
+     * add tolerance for border damage or ink bleed.
+     */
+    CV_PROP_RW double maxErroneousBitsInBorderRate = 0;
+
+    /** @brief Set to true to detect markers printed white-on-black (inverted polarity).
+     *
+     * Default: false (standard black-on-white markers).
+     */
+    CV_PROP_RW bool detectInvertedMarker = false;
 };
-/**
- * @brief A fiducial marker
+
+
+/** @brief A single detected ArUco marker.
+ *
+ * `corners` holds the four image-plane corner points in clockwise order starting from the
+ * top-left corner.  `id` is the marker identifier within its `dict` dictionary.
+ *
+ * Corner order (viewed from front, standard orientation):
+ * @code
+ *   corners[0] ---- corners[1]
+ *       |                |
+ *   corners[3] ---- corners[2]
+ * @endcode
+ *
+ * @sa detectMarkers, drawDetectedMarkers, getSolvePnpPoints
  */
 struct CV_EXPORTS_W_SIMPLE Marker {
-    CV_PROP_RW std::vector<cv::Point2f> corners;
-    CV_PROP_RW int id = -1;
-    CV_PROP_RW DictionaryType dict = DictionaryType(-1);
+    CV_PROP_RW std::vector<cv::Point2f> corners; ///< four corner points in clockwise order
+    CV_PROP_RW int id = -1;                      ///< marker id; -1 if unidentified
+    CV_PROP_RW DictionaryType dict = DictionaryType(-1); ///< dictionary this marker belongs to
 };
 
-/** @brief Generate a canonical marker image
+
+/** @brief Generate a canonical marker image ready for printing.
  *
- * @param dictionary dictionary of markers indicating the type of markers
- * @param id identifier of the marker that will be returned. It has to be a valid id in the specified dictionary.
- * @param sidePixels size of the image in pixels
- * @param img output image with the marker
- * @param borderBits width of the marker border.
+ * @param dictionary  predefined dictionary the marker belongs to
+ * @param id          marker identifier; must be a valid index in the chosen dictionary
+ * @param sidePixels  output image size in pixels (square); must be >= markerSize + 2*borderBits
+ * @param img         output grayscale image (CV_8UC1)
+ * @param borderBits  width of the black border in marker bits (default 1)
  *
- * This function returns a marker image in its canonical form (i.e. ready to be printed)
+ * Example — save a 200×200 px image of marker 42 from the 6×6 250-code dictionary:
+ * @code
+ * cv::Mat markerImg;
+ * cv::aruco2::generateImageMarker(DICT_6X6_250, 42, 200, markerImg);
+ * cv::imwrite("marker_42.png", markerImg);
+ * @endcode
  */
-CV_WRAP void generateImageMarker(const DictionaryType &dictionary, int id, int sidePixels, OutputArray img,
-                                      int borderBits = 1);
+CV_WRAP void generateImageMarker(const DictionaryType &dictionary, int id, int sidePixels,
+                                 OutputArray img, int borderBits = 1);
 
 
-
-/** @brief Basic marker detection using a single dictionary
-     *
-     * @param image input image
-     * @param detectorParams marker detection parameters
-     *
-     * Performs marker detection in the input image.
-     *
-     * Note that this function does not perform pose estimation.
-     * @note The function does not correct lens distortion or takes it into account. It's recommended to undistort
-     * input image with corresponding camera model, if camera parameters are known
-     * @sa undistort
-     */
-CV_WRAP std::vector<Marker> detectMarkers(InputArray image,DictionaryType dict=DICT_ARUCO_MIP_36h12,const DetectorParameters &detectorParams={});
-/**
- * @brief Marker detection using a multiple dictionaries
- * @param image
- * @param dicts
- * @param detectorParams
- * @return
- */
-CV_WRAP std::vector<Marker> detectMarkers(InputArray image,const std::vector<DictionaryType> &dicts,const DetectorParameters &detectorParams={});
-
-
-/** @brief Draw detected markers in image
+/** @brief Detect ArUco markers in an image using a single dictionary.
  *
- * @param image input/output image. It must have 1 or 3 channels. The number of channels is not altered.
- * @param markers detected on input image.
- * @param borderColor color of marker borders. Rest of colors (text color and first corner color)
- * are calculated based on this one to improve visualization.
+ * @param image        input image (grayscale or BGR)
+ * @param dict         dictionary to search; default is DICT_ARUCO_MIP_36h12
+ * @param detectorParams  detection tuning parameters
+ * @return             vector of detected Marker objects; empty if none found
  *
- * Given an array of detected markers, this functions draws them in the image.
- * The marker borders and identifiers are drawn.
- * Useful for debugging purposes.
- */
-CV_WRAP void drawDetectedMarkers(InputOutputArray image, const std::vector<Marker> &markers, Scalar borderColor = Scalar(0, 255, 0));
-
-
-/**
- * @brief   calculates the values imgPoints and objPoints that can be passed to solvePnp
- * @param marker
- * @param imgPoints
- * @param objPoints
- */
-CV_WRAP void getSolvePnpPoints(const Marker marker, OutputArray imgPoints,OutputArray objPoints);
-
-
-/** @brief Board of ArUco markers
+ * Performs the full detection pipeline: adaptive thresholding → contour tracing →
+ * quadrilateral fitting → bit extraction → dictionary lookup → subpixel corner refinement.
  *
- * A board is a set of markers in the 3D space with a common coordinate system.
- * The common form of a board of marker is a planar (2D) board, however any 3D layout can be used.
- * A Board object is composed by:
- * - The object points of the marker corners, i.e. their coordinates respect to the board system.
- * - The dictionary which indicates the type of markers of the board
- * - The identifier of all the markers in the board.
+ * @note Lens distortion is not corrected internally.  For accurate pose estimation,
+ * undistort the image first with the known camera model.
+ * @sa undistort, detectMarkers(InputArray, const std::vector<DictionaryType>&, const DetectorParameters&)
+ */
+CV_WRAP std::vector<Marker> detectMarkers(InputArray image, DictionaryType dict = DICT_ARUCO_MIP_36h12,
+                                          const DetectorParameters &detectorParams = {});
+
+/** @brief Detect ArUco markers in an image searching across multiple dictionaries in one pass.
+ *
+ * @param image        input image (grayscale or BGR)
+ * @param dicts        list of dictionaries to search simultaneously
+ * @param detectorParams  detection tuning parameters
+ * @return             vector of detected Marker objects; each carries the dictionary it was found in
+ *
+ * Each marker candidate is tested against all dictionaries in `dicts`.  Once identified in one
+ * dictionary it is removed from the candidate pool, so the same region is never matched twice.
+ *
+ * @sa Marker::dict
+ */
+CV_WRAP std::vector<Marker> detectMarkers(InputArray image, const std::vector<DictionaryType> &dicts,
+                                          const DetectorParameters &detectorParams = {});
+
+
+/** @brief Draw detected markers onto an image.
+ *
+ * @param image        input/output image (1 or 3 channels); modified in place
+ * @param markers      markers returned by detectMarkers()
+ * @param borderColor  color used to draw the marker outline (default: green)
+ *
+ * For each marker the function draws:
+ * - a quadrilateral outline in `borderColor`
+ * - a filled circle on corner[0] in a contrasting color to indicate orientation
+ * - the marker id as text at the marker centroid
+ *
+ * Useful for visualisation and debugging.
+ */
+CV_WRAP void drawDetectedMarkers(InputOutputArray image, const std::vector<Marker> &markers,
+                                 Scalar borderColor = Scalar(0, 255, 0));
+
+
+/** @brief Compute image and object points for a single marker to pass to solvePnP().
+ *
+ * @param marker     a detected marker
+ * @param imgPoints  output 4×1 array of the marker's corner pixel coordinates (CV_32FC2)
+ * @param objPoints  output 4×1 array of the corresponding 3-D object points in marker
+ *                   coordinates (CV_32FC3), with the marker centre at the origin and
+ *                   half-unit side length (i.e. corners at ±0.5 in X and Y, Z=0)
+ *
+ * Scale `objPoints` by the known physical marker side length before calling solvePnP():
+ * @code
+ * cv::Mat rvec, tvec, imgPts, objPts;
+ * cv::aruco2::getSolvePnpPoints(marker, imgPts, objPts);
+ * objPts *= markerSideMeters;
+ * cv::solvePnP(objPts, imgPts, cameraMatrix, distCoeffs, rvec, tvec);
+ * @endcode
+ */
+CV_WRAP void getSolvePnpPoints(const Marker marker, OutputArray imgPoints, OutputArray objPoints);
+
+
+/** @brief A detected grid board of ArUco markers.
+ *
+ * Returned by detectBoard().  `gridSize` describes the layout; `markers` contains only the
+ * subset of board markers that were actually found in the image.
+ *
+ * @sa detectBoard, getSolvePnpPoints(const Board, OutputArray, OutputArray)
  */
 struct CV_EXPORTS_W_SIMPLE Board {
-    CV_PROP_RW cv::Size gridSize;
-    CV_PROP_RW DictionaryType dict;
-    CV_PROP_RW std::vector<int> ids;
-    CV_PROP_RW std::vector<Marker> markers;
+    CV_PROP_RW cv::Size gridSize;              ///< board dimensions: width × height in markers
+    CV_PROP_RW DictionaryType dict;            ///< dictionary used for all markers on the board
+    CV_PROP_RW std::vector<int> ids;           ///< ids of the detected markers
+    CV_PROP_RW std::vector<Marker> markers;    ///< detected markers (subset of the full board)
 };
 
-/**
- * @brief Board detection in an image
- * @param image input image
- * @param bsize board size
- * @param dict board marker's dictionary
- * @param detectorParams
- * @param ids optional ids of the board
- * @return
- */
-CV_WRAP bool detectBoard(InputArray image, cv::Size gridSize, DictionaryType dict, CV_OUT Board &board, const DetectorParameters &detectorParams={}, std::vector<int> ids={});
-/**
- * @brief Diamon detection
- * @param image
- * @param dict
- * @param detectorParams
- * @return
- */
-CV_WRAP std::vector<Board> detectDiamons(InputArray image, DictionaryType dict, const DetectorParameters &detectorParams={});
 
-/**
- * @brief   calculates the values imgPoints and objPoints that can be passed to solvePnp
- * @param marker
- * @param imgPoints
- * @param objPoints
+/** @brief Detect a rectangular grid board of ArUco markers.
+ *
+ * @param image        input image (grayscale or BGR)
+ * @param gridSize     board layout as columns × rows (e.g. `cv::Size(4, 3)` for a 4×3 grid)
+ * @param dict         dictionary used to print the board
+ * @param board        output Board populated with the detected markers
+ * @param detectorParams  detection tuning parameters
+ * @param ids          optional custom marker id list in row-major order;
+ *                     if empty, ids 0…(cols*rows−1) are assumed
+ * @return             true if at least one board marker was detected
+ *
+ * In Python the return value and output parameter are combined:
+ * @code{.py}
+ * found, board = cv.aruco2.detectBoard(image, (4, 3), cv.aruco2.DICT_6X6_250)
+ * @endcode
  */
-CV_WRAP void getSolvePnpPoints(const Board board, OutputArray imgPoints,OutputArray objPoints);
+CV_WRAP bool detectBoard(InputArray image, cv::Size gridSize, DictionaryType dict,
+                         CV_OUT Board &board, const DetectorParameters &detectorParams = {},
+                         std::vector<int> ids = {});
 
+
+/** @brief Detect ArUco Diamond markers in an image.
+ *
+ * A diamond marker is a special board of four ArUco markers arranged in a 2×2 rhombus pattern.
+ * Unlike standard grid boards, diamonds can encode four independent ids and are robust at
+ * greater distances due to the larger effective border.
+ *
+ * @param image        input image (grayscale or BGR)
+ * @param dict         dictionary used to print the diamond markers
+ * @param detectorParams  detection tuning parameters
+ * @return             vector of detected diamond boards; empty if none found
+ */
+CV_WRAP std::vector<Board> detectDiamonds(InputArray image, DictionaryType dict,
+                                          const DetectorParameters &detectorParams = {});
+
+
+/** @brief Compute image and object points for a detected board to pass to solvePnP().
+ *
+ * @param board      a detected board returned by detectBoard()
+ * @param imgPoints  output array of image-plane corner coordinates for all detected markers (CV_32FC2)
+ * @param objPoints  output array of corresponding 3-D object points in board coordinates (CV_32FC3),
+ *                   with the board origin at the top-left marker centre and axes aligned to the grid.
+ *                   Units are marker-side lengths; scale by the physical marker size before solvePnP().
+ *
+ * @sa getSolvePnpPoints(const Marker, OutputArray, OutputArray)
+ */
+CV_WRAP void getSolvePnpPoints(const Board board, OutputArray imgPoints, OutputArray objPoints);
+
+//! @}
 
 }
