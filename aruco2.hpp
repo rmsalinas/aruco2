@@ -451,7 +451,7 @@ private:
     std::vector<cv::Point3f> objPoints; ///< matching 3-D model points in normalised space
     friend std::vector<FractalMarker> detectFractals(InputArray, FractalType);
     friend void getSolvePnpPoints(const FractalMarker &, OutputArray, OutputArray, float);
-    friend void drawDetectedFractals(InputOutputArray, const std::vector<FractalMarker> &, Scalar);
+    friend void drawDetectedFractals(InputOutputArray, const std::vector<FractalMarker> &, Scalar, bool);
 };
 
 /** @brief Render a fractal marker to a grayscale image.
@@ -483,12 +483,14 @@ CV_WRAP std::vector<FractalMarker> detectFractals(InputArray image, FractalType 
  * Draws a coloured quadrilateral around each marker, a red dot on @p corners[0] to
  * indicate orientation, and the marker id at the centroid.
  *
- * @param image     input/output BGR or grayscale image
- * @param fractals  vector returned by detectFractals()
- * @param color     border and label colour (default green)
+ * @param image            input/output BGR or grayscale image
+ * @param fractals         vector returned by detectFractals()
+ * @param color            border and label colour (default green)
+ * @param drawAllImagePoints  if true, draw a small circle at every matched image point
+ *                         stored inside each FractalMarker (default false)
  */
 CV_WRAP void drawDetectedFractals(InputOutputArray image, const std::vector<FractalMarker> &fractals,
-                                  Scalar color = Scalar(0, 255, 0));
+                                  Scalar color = Scalar(0, 255, 0), bool drawAllImagePoints = true);
 
 /** @brief Extract solvePnP inputs for a detected fractal marker.
  *

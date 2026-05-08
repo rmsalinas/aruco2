@@ -59,6 +59,7 @@
 #include <opencv2/imgproc.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/calib3d.hpp>
+#include <opencv2/flann.hpp>
 
 #include <map>
 #include <iostream>
@@ -86,544 +87,6 @@ namespace nanofractal{
 
 namespace nanofractal {
 namespace _private{
-namespace  picoflann {
-struct L2{
-
-    template<typename ElementType, typename ElementType2, typename Adapter>
-    double compute_distance( const ElementType &elema,const ElementType2 &elemb,const Adapter & adapter,int ndims ,double worstDist)const
-    {
-        //compute dist
-        double sqd=0;
-        for(int i=0;i<ndims;i++) {
-            double d= adapter(elema,i)-adapter(elemb,i);
-            sqd+=d*d;
-            if (sqd>worstDist) return sqd;
-        }
-        return sqd;
-    }
-};
-
-template<int DIMS,typename Adapter,typename DistanceType=L2 >
-class KdTreeIndex{
-
-public:
-    /**
-     *Builds the index using the data  passes in your container and the adapter
-     */
-    template<typename Container  >
-    inline void build(const Container &container ){
-        _index.clear();
-        _index.reserve(container.size()*2);
-        _index.dims=DIMS;
-        _index.nValues=container.size();
-        //Create root and assign all items
-        all_indices.resize(container.size());
-        for(size_t i=0;i<container.size();i++)  all_indices[i]=i;
-        if (container.size()==0) return;
-        computeBoundingBox<Container>(_index.rootBBox,0,all_indices.size(),container);
-        _index.push_back(Node());
-        divideTree<Container>(_index,0,0,all_indices.size(),_index.rootBBox ,container);
-    }
-
-
-    inline void clear(){
-        _index.clear();
-        all_indices.clear();
-    }
-
-    //saves to a stream. Note that the container is not saved!
-    inline void toStream (std::ostream &str)const;
-    //reads from an stream. Note that the container is not readed!
-    inline void fromStream (std::istream &str);
-
-    template<  typename Type,typename Container >
-    inline std::vector<std::pair<uint32_t,double> >  searchKnn(const Container &container,const Type &val,  int nn,bool sorted=true){
-        std::vector<std::pair<uint32_t,double> > res;
-        generalSearch<Type,Container>(res,container,val,-1,sorted,nn);
-        return res;
-    }
-
-
-    template<  typename Type,typename Container >
-    inline std::vector<std::pair<uint32_t,double> >  radiusSearch(const Container &container,const Type &val, double dist,bool sorted=true, int maxNN=-1)const{
-        std::vector<std::pair<uint32_t,double> > res;
-        generalSearch< Type,Container>(res,container,val,dist,sorted,maxNN);
-        return res;
-    }
-
-
-    template< typename Type,typename Container >
-    inline void  radiusSearch(std::vector<std::pair<uint32_t,double> > &res,const Container &container,const Type &val, double dist,bool sorted=true, int maxNN=-1){
-        generalSearch<Type,Container>(res,container,val,dist,sorted,maxNN);
-    }
-
-
-
-private:
-
-    struct Node{
-        inline bool isLeaf()const{return _ileft==-1 && _iright==-1;}
-        inline void setNodesInfo(uint32_t l,uint32_t r){_ileft=l; _iright=r;}
-        double div_val;
-        uint16_t col_index;//column index of the feature vector
-        std::vector<int> idx;
-        float divhigh,divlow;
-        int64_t _ileft=-1,_iright=-1;//children
-        void toStream(std::ostream &str) const;
-        void fromStream(std::istream &str);
-    };
-
-
-    typedef std::vector<std::pair<double,double> > BoundingBox;
-
-    struct Index:public  std::vector<Node>{
-        BoundingBox rootBBox;
-        int dims=0;
-        int nValues=0;//number of elements of the set when call to build
-        inline void toStream(std::ostream &str)const;
-        inline void fromStream(std::istream &str);
-    };
-    Index _index;
-    DistanceType _distance;
-    Adapter adapter;
-    //next are only used during build
-    std::vector<uint32_t> all_indices;
-    int _maxLeafSize=10 ;
-
-
-
-    //temporal used during creation of the tree
-    template< typename Container >
-    void  divideTree(Index &index,uint64_t  nodeIdx,int startIndex,int endIndex ,BoundingBox &bbox,const Container&container){
-        // std::cout<<"CREATE="<<startIndex<<"-"<<endIndex<<"|";toStream(std::cout,bbox);
-        Node &currNode=index[nodeIdx];
-        int count=endIndex-startIndex;
-        assert(startIndex<endIndex);
-
-        if (count<=  _maxLeafSize){
-            currNode.idx.resize(count);
-            for(int i=0;i<count;i++)
-                currNode.idx[i]= all_indices[startIndex+i];
-            computeBoundingBox<Container>(bbox,startIndex,endIndex,container);
-            //  std::cout<<std::endl;
-            return;
-        }
-
-
-        currNode.setNodesInfo( index.size(), index.size()+1);
-        index.push_back(Node());
-        int leftNode=index.size()-1;
-        index.push_back(Node());
-        int rightNode=index.size()-1;
-
-
-        ///SELECT THE COL (DIMENSION) ON WHICH PARTITION IS MADE
-        if (0){
-            BoundingBox _bbox;
-            computeBoundingBox<Container>(_bbox,startIndex,endIndex,container);
-            //        //get the dimension with highest distnaces
-            double max_spread=-1;
-            currNode.col_index=0;
-            for(int i=0;i<DIMS;i++){
-                double spread=_bbox[i].second-_bbox[i].first;// maxV[i]-minV[i];
-                if ( spread>max_spread){
-                    max_spread=spread;
-                    currNode.col_index=i;
-                }
-            }
-            //select the split val
-            double split_val= (bbox[currNode.col_index].first + bbox[currNode.col_index].second) / 2;
-            if (split_val < _bbox[currNode.col_index].first) currNode.div_val = _bbox[currNode.col_index].first;
-            else if (split_val > _bbox[currNode.col_index].second  ) currNode.div_val = _bbox[currNode.col_index].second ;
-            else  currNode.div_val = split_val;
-        }
-        else{
-            ///SELECT THE COL (DIMENSION) ON WHICH PARTITION IS MADE
-            double var[DIMS],mean[DIMS];
-            //compute the variance of the features to  select the highest one
-            mean_var_calculate<Container>(startIndex,endIndex, var, mean,container);
-            currNode.col_index=0;
-            //select element with highest variance
-            for(int i=1;i<DIMS;i++)
-                if (var[i]>var[currNode.col_index]) currNode.col_index=i;
-
-            //now sort all indices according to the selected value
-
-            currNode.div_val=mean[currNode.col_index];
-        }
-
-
-
-
-
-        //compute the variance of the features to  select the highest one
-        //now sort all indices according to the selected value
-
-        //std::cout<<" CUT FEAT="<<currNode.col_index<< " VAL="<<currNode.div_val<<std::endl;
-        int lim1,lim2;
-        planeSplit<Container> ( &all_indices[startIndex],count,currNode.col_index,currNode.div_val,lim1,lim2,container);
-
-        int split_index;
-
-        if (lim1>count/2) split_index = lim1;
-        else if (lim2<count/2) split_index = lim2;
-        else split_index = count/2;
-
-        //        /* If either list is empty, it means that all remaining features
-        //              * are identical. Split in the middle to maintain a balanced tree.
-        //              */
-        if ((lim1==count)||(lim2==0)) split_index = count/2;
-        //create partitions with at least minLeafSize elements
-        if (_maxLeafSize!=1)
-            if ( split_index<_maxLeafSize || count-split_index<_maxLeafSize) {
-                std::sort(all_indices.begin()+ startIndex ,all_indices.begin()+endIndex,[&](const uint32_t &a,const uint32_t&b){
-                    return adapter(container.at(a), currNode.col_index)<adapter(container.at(b),currNode.col_index);
-                });
-                split_index=count/2;
-                currNode.div_val=adapter(container.at(all_indices[startIndex+split_index]),currNode.col_index);
-            }
-
-
-
-        //  currNode.div_val=_features.ptr<float>(all_indices[split_index])[currNode.col_index];
-
-        BoundingBox left_bbox(bbox);
-        left_bbox[currNode.col_index].second = currNode.div_val;
-        divideTree<Container>( index,leftNode ,startIndex,startIndex+split_index,left_bbox,container);
-        left_bbox[currNode.col_index].second = currNode.div_val;
-        assert(left_bbox[currNode.col_index].second <=currNode.div_val);
-        BoundingBox right_bbox(bbox);
-        right_bbox[currNode.col_index].first = currNode.div_val;
-        divideTree<Container>(index,rightNode,startIndex+split_index,endIndex,right_bbox,container);
-
-        currNode.divlow = left_bbox[currNode.col_index].second;
-        currNode.divhigh = right_bbox[currNode.col_index].first;
-        assert(currNode.divlow<=currNode.divhigh);
-
-        for (int i=0; i<DIMS; ++i) {
-            bbox[i].first = std::min(left_bbox[i].first, right_bbox[i].first);
-            bbox[i].second = std::max(left_bbox[i].second, right_bbox[i].second);
-        }
-    }
-
-
-
-
-    template<  typename Container >
-    void  computeBoundingBox (BoundingBox& bbox, int start,int end,const Container&container ){
-        bbox.resize(DIMS);
-        for (int i=0; i<DIMS; ++i)
-            bbox[i].second = bbox[i].first = adapter( container.at(  all_indices[start]),i);
-
-        for (int k=start+1; k<end; ++k) {
-            for (int i=0; i<DIMS; ++i) {
-                float v=    adapter( container.at(all_indices[k]),i);
-                if (v<bbox[i].first) bbox[i].first = v;
-                if (v>bbox[i].second) bbox[i].second = v;
-            }
-        }
-    }
-
-    template<  typename Container >
-    void  mean_var_calculate(  int startindex, int endIndex, double var[], double mean[],const Container&container){
-        const int MAX_ELEM_MEAN=100;
-        //recompute centers
-        //compute new center
-        memset(mean,0,sizeof(double)*DIMS);
-        double sum2[DIMS];
-        memset(sum2,0,sizeof(double)*DIMS);
-        //finish when at least MAX_ELEM_MEAN elements computed
-        int cnt=0;
-        //std::min(MAX_ELEM_MEAN,endIndex-startindex );
-        int increment=1;
-        if ( endIndex-startindex>=2*MAX_ELEM_MEAN) increment=(endIndex-startindex)/MAX_ELEM_MEAN;
-        for(int i=startindex;i<endIndex;i+=increment) {
-            for(int c=0;c<DIMS;c++)    {
-                auto val= adapter(container.at(all_indices[i]),c);
-                mean[c] += val;
-                sum2[c] += val*val;
-            }
-            cnt++;
-        }
-
-        double invcnt=1./double(cnt);
-        for(int c=0;c<DIMS;c++) {
-            mean[c]*=invcnt;
-            var[c]= sum2[c]*invcnt - mean[c]*mean[c];
-        }
-    }
-
-
-    /**
-     *  Subdivide the list of points by a plane perpendicular on axe corresponding
-     *  to the 'cutfeat' dimension at 'cutval' position.
-     *
-     *  On return:
-     *  dataset[ind[0..lim1-1]][cutfeat]<cutval
-     *  dataset[ind[lim1..lim2-1]][cutfeat]==cutval
-     *  dataset[ind[lim2..count]][cutfeat]>cutval
-     */
-    template<  typename Container >
-    void  planeSplit(uint32_t* ind, int count, int cutfeat, float cutval, int& lim1, int& lim2,const Container&container){
-        /* Move vector indices for left subtree to front of list. */
-        int left = 0;
-        int right = count-1;
-        for (;; ) {
-            while (left<=right && adapter(container.at( ind[left]),cutfeat)<cutval) ++left;
-            while (left<=right &&   adapter(container.at( ind[right]),cutfeat)>=cutval) --right;
-            if (left>right) break;
-            std::swap(ind[left], ind[right]); ++left; --right;
-        }
-        lim1 = left;
-        right = count-1;
-        for (;; ) {
-            while (left<=right &&   adapter(container.at(ind[left]),cutfeat)<=cutval) ++left;
-            while (left<=right &&   adapter(container.at(ind[right]),cutfeat)>cutval) --right;
-            if (left>right) break;
-            std::swap(ind[left], ind[right]); ++left; --right;
-        }
-        lim2 = left;
-    }
-
-
-    template< typename Type >
-    inline  double computeInitialDistances(const Type &elem, double dists[ ],const BoundingBox &bbox) const{
-        float distsq = 0.0;
-
-        for (int i = 0; i <DIMS; ++i) {
-            double elem_i=adapter( elem,i);
-            if (elem_i < bbox[i].first) {
-                auto d=elem_i-bbox[i].first;
-                dists[i] = d*d;// distance_.accum_dist(vec[i], root_bbox_[i].first, i);
-                distsq += dists[i];
-            }
-            if (elem_i > bbox[i].second) {
-                auto d=elem_i-bbox[i].second;
-                dists[i] = d*d;//distance_.accum_dist(vec[i], root_bbox_[i].second, i);
-                distsq += dists[i];
-            }
-        }
-        return distsq;
-    }
-    //THe function that does the search in all exact methods
-    template< typename Type,typename Container>
-    inline void generalSearch( std::vector<std::pair<uint32_t,double> > &res, const Container&container,const Type &val,double dist,bool sorted=true,uint32_t maxNn=std::numeric_limits<int>::max() )const{
-        double  dists[DIMS];
-        memset(dists ,0,sizeof(double)*DIMS);
-        res.clear();
-        ResultSet hres( res ,maxNn,dist>0?dist*dist:-1.f);
-        float distsq = computeInitialDistances<Type>(val, dists,_index.rootBBox);
-        searchExactLevel<Type,Container> (_index,0,val,hres,distsq,dists,1,container);
-        if (sorted && res.size()>1)
-            std::sort(res.begin(),res.end(),[](const std::pair<uint32_t,double>&a,const std::pair<uint32_t,double>&b){return a.second<b.second;});
-    }
-
-    //heap having at the top the maximum element
-
-    class ResultSet{
-    public:
-        std::vector<std::pair<uint32_t,double> > &array;
-        int maxSize;
-        double maxValue=std::numeric_limits<double>::max();
-        bool radius_search=false;
-
-    public:
-        ResultSet(  std::vector<std::pair<uint32_t,double> > &data_ref,uint32_t MaxSize=std::numeric_limits<uint32_t>::max(),double MaxV=-1):array(data_ref){
-            maxSize=MaxSize;
-            //set value for radius search
-            if (MaxV>0){
-                maxValue =MaxV;
-                radius_search=true;
-            }
-        }
-
-
-        inline void push (const  std::pair<uint32_t,double> &val)
-        {
-            if ( radius_search &&  val.second<maxValue){
-                array.push_back(val);
-            }
-            else{
-                if (array.size()>=size_t(maxSize) ) {
-                    //check if the maxium must be replaced by this
-                    if ( val.second<array[0].second){
-                        swap(array.front() ,array.back());
-                        array.pop_back();
-                        if (array.size()> 1)  up (0) ;
-                    }
-                    else return;
-                }
-                array.push_back(val);
-                if (array.size()>1) down ( array.size()-1) ;
-            }
-            //            array_size++;
-        }
-
-        inline double worstDist()const{
-            if (radius_search)return maxValue;//radius search
-            else if (array.size()<size_t(maxSize))return std::numeric_limits<double>::max();
-            return array[0].second;
-        }
-        inline double top()const{assert(!array.empty()); return array[0].second;}
-    private:
-        inline void  down ( size_t index)
-        {
-            if(index==0) return;
-            size_t parentIndex =(index - 1) / 2;
-            if (array[parentIndex].second< array[ index].second ) {
-                swap( array[index],array[parentIndex] );
-                down (parentIndex) ;
-            }
-        }
-        inline void up (size_t index)
-        {
-            size_t leftIndex  = 2 * index + 1 ;//vl_heap_left_child (index) ;
-            size_t rightIndex = 2 * index + 2;//vl_heap_right_child (index) ;
-
-            /* no childer: stop */
-            if (leftIndex >= array.size()) return ;
-
-            /* only left childer: easy */
-            if (rightIndex >= array.size()) {
-                if ( array [ index].second <array[leftIndex].second)
-                    swap (  array [ index], array[leftIndex]) ;
-                return ;
-            }
-
-            /* both childern */
-            {
-                if ( array[ rightIndex].second< array[  leftIndex].second  ) {
-                    /* swap with left */
-                    if (array [index].second< array[leftIndex].second ) {
-                        swap ( array [index] ,  array[leftIndex]) ;
-                        up ( leftIndex) ;
-                    }
-                } else {
-                    /* swap with right */
-                    if ( array[ index].second  < array[rightIndex].second) {
-                        swap ( array[ index], array[rightIndex]) ;
-                        up ( rightIndex) ;
-                    }
-                }
-            }
-        }
-    };
-
-    template< typename Type,typename Container >
-    inline  void searchExactLevel(const Index &index,int64_t nodeIdx,const Type &elem, ResultSet  &res, double mindistsq, double  dists[ ],double epsError ,const Container &container)const{
-
-        const Node &currNode=index[nodeIdx];
-        if (currNode.isLeaf()){
-            double worstDist=res.worstDist();
-            for(size_t i=0;i<currNode.idx.size();i++){
-                double sqd=_distance.compute_distance(elem,container.at(currNode.idx[i]),adapter,DIMS,worstDist);
-                if (sqd<worstDist) {
-                    res.push( {currNode.idx[i],sqd});
-                    worstDist=res.worstDist();
-                }
-            }
-        }
-        else{
-
-            double val = adapter( elem, currNode.col_index);
-            double diff1 = val - currNode.divlow;
-            double diff2 = val - currNode.divhigh;
-
-            uint32_t bestChild;
-            uint32_t otherChild;
-            double cut_dist;
-            if ((diff1+diff2)<0) {
-                bestChild = currNode._ileft;
-                otherChild = currNode._iright;
-                cut_dist = diff2*diff2 ;
-            }
-            else {
-                bestChild =  currNode._iright;
-                otherChild = currNode._ileft;
-                cut_dist =  diff1*diff1;
-            }
-            /* Call recursively to search next level down. */
-            searchExactLevel<Type,Container> (index,bestChild,elem,res, mindistsq, dists ,epsError,container );
-
-            float dst = dists[currNode.col_index];
-            mindistsq = mindistsq + cut_dist - dst;
-            dists[currNode.col_index] = cut_dist;
-            if (mindistsq*epsError <=res.worstDist())
-                searchExactLevel<Type,Container>   (index,otherChild,elem,res, mindistsq, dists,epsError,container );
-            dists[currNode.col_index] = dst;
-        }
-    }
-
-};
-template<int DIMS,typename AAdapter,typename DistanceType>
-void KdTreeIndex<DIMS,AAdapter,DistanceType>::Node::toStream(std::ostream &str) const{
-    str.write((char*)&div_val,sizeof(div_val));
-    str.write((char*)&col_index,sizeof(col_index));
-    str.write((char*)&divhigh,sizeof(divhigh));
-    str.write((char*)&divlow,sizeof(divlow));
-    str.write((char*)&_ileft,sizeof(_ileft));
-    str.write((char*)&_iright,sizeof(_iright));
-    uint64_t s=idx.size();
-    str.write((char*)&s,sizeof(s));
-    str.write((char*)&idx[0],sizeof(idx[0])*idx.size());
-
-}
-
-template<int DIMS,typename AAdapter,typename DistanceType>
-void KdTreeIndex<DIMS,AAdapter,DistanceType>::Node::fromStream(std::istream &str){
-    str.read((char*)&div_val,sizeof(div_val));
-    str.read((char*)&col_index,sizeof(col_index));
-    str.read((char*)&divhigh,sizeof(divhigh));
-    str.read((char*)&divlow,sizeof(divlow));
-    str.read((char*)&_ileft,sizeof(_ileft));
-    str.read((char*)&_iright,sizeof(_iright));
-    uint64_t s;
-    str.read((char*)&s,sizeof(s));
-    idx.resize(s);
-    str.read((char*)&idx[0],sizeof(idx[0])*idx.size());
-
-}
-
-template<int DIMS,typename AAdapter,typename DistanceType>
-void KdTreeIndex<DIMS,AAdapter,DistanceType>::Index::toStream(std::ostream &str)const
-{
-
-    str.write((char*)&dims,sizeof(dims));
-    str.write((char*)&rootBBox[0],sizeof(rootBBox[0])*dims);
-    str.write((char*)&nValues,sizeof(nValues));
-
-    uint64_t s=std::vector<Node>::size();
-    str.write((char*)&s,sizeof(s));
-    for(size_t i=0;i<std::vector<Node>::size();i++) std::vector<Node>::at(i).toStream(str);
-}
-
-template<int DIMS,typename AAdapter,typename DistanceType>
-void KdTreeIndex<DIMS,AAdapter,DistanceType>::Index::fromStream(std::istream &str){
-    str.read((char*)&dims,sizeof(dims));
-    rootBBox.resize(dims);
-    str.read((char*)&rootBBox[0],sizeof(rootBBox[0])*dims);
-    str.read((char*)&nValues,sizeof(nValues));
-
-
-    uint64_t s;;
-    str.read((char*)&s,sizeof(s));
-    std::vector<Node>::resize(s);
-    for(size_t i=0;i<std::vector<Node>::size();i++) std::vector<Node>::at(i).fromStream(str);
-    if (dims!=DIMS && this->size()!=0 && nValues!=0)
-        throw std::runtime_error("Number of dimensions of the index in the stream is different from the number of dimensions of this");
-
-}
-
-template<int DIMS,typename AAdapter,typename DistanceType>
-void KdTreeIndex<DIMS,AAdapter,DistanceType>::toStream (std::ostream &str)const{
-    _index.toStream(str);
-}
-
-template<int DIMS,typename AAdapter,typename DistanceType>
-void KdTreeIndex<DIMS,AAdapter,DistanceType>::fromStream(std::istream &str){
-    _index.fromStream(str);
-}
-}
 struct Homographer{
     Homographer(const std::vector<cv::Point2f> & out ){
         std::vector<cv::Point2f>  in={cv::Point2f(0,0),cv::Point2f(1,0),cv::Point2f(1,1),cv::Point2f(0,1)};
@@ -637,10 +100,6 @@ struct Homographer{
         return cv::Point2f(a/c,b/c);
     }
     cv::Mat H;
-};
-struct PicoFlann_KeyPointAdapter{
-    inline  float operator( )(const cv::KeyPoint &elem, int dim)const { return dim==0?elem.pt.x:elem.pt.y; }
-    inline  float operator( )(const cv::Point2f &elem, int dim)const { return dim==0?elem.x:elem.y; }
 };
 
 /* KeyPoints Filter. Delete kpoints with low response and duplicated. */
@@ -1260,33 +719,38 @@ std::vector<FractalMarker> FractalMarkerDetector::detect(const cv::Mat &img, std
     //Fractal marker detection
     std::vector<FractalMarker> detected =  detect(bwimage);
 
-    if(detected.size() > 0)
+    if(detected.size() ==0 ) return detected;
+    //External corners to compute homography
+    std::vector<cv::Point2f>imgpoints;
+    std::vector<cv::Point3f>objpoints;
+    for(auto marker:detected)
     {
-        //External corners to compute homography
-        std::vector<cv::Point2f>imgpoints;
-        std::vector<cv::Point3f>objpoints;
-        for(auto marker:detected)
+        for(auto p2d:marker)
+            imgpoints.push_back(p2d);
+
+        for(int c=0; c<4; c++)
         {
-            for(auto p2d:marker)
-                imgpoints.push_back(p2d);
-
-            for(int c=0; c<4; c++)
-            {
-                cv::KeyPoint kpt = fractalMarkerSet.fractalMarkerCollection[marker.id].getKeypts()[c];
-                objpoints.push_back(cv::Point3f(kpt.pt.x, kpt.pt.y, 0));
-            }
+            cv::KeyPoint kpt = fractalMarkerSet.fractalMarkerCollection[marker.id].getKeypts()[c];
+            objpoints.push_back(cv::Point3f(kpt.pt.x, kpt.pt.y, 0));
         }
+    }
 
-        //FAST
-        std::vector<cv::KeyPoint> kpoints;
-        cv::Ptr<cv::FastFeatureDetector> fd = cv::FastFeatureDetector::create();
-        fd->detect(bwimage, kpoints);
-        //Filter kpoints (low response) and removing duplicated.
-        _private::kfilter(kpoints);
-        _private::assignClass(bwimage, kpoints);
+    //FAST
+    std::vector<cv::KeyPoint> kpoints;
+    cv::Ptr<cv::FastFeatureDetector> fd = cv::FastFeatureDetector::create();
+    fd->detect(bwimage, kpoints);
+    //Filter kpoints (low response) and removing duplicated.
+    _private::kfilter(kpoints);
+    _private::assignClass(bwimage, kpoints);
 
-        _private::picoflann::KdTreeIndex<2,_private::PicoFlann_KeyPointAdapter>  kdtree;
-        kdtree.build(kpoints);
+    if(kpoints.size()>0){
+        // Build a 2-D kd-tree from the detected keypoints using cv::flann
+        cv::Mat kpointsMat((int)kpoints.size(), 2, CV_32F);
+        for (int i = 0; i < (int)kpoints.size(); i++) {
+            kpointsMat.at<float>(i, 0) = kpoints[i].pt.x;
+            kpointsMat.at<float>(i, 1) = kpoints[i].pt.y;
+        }
+        cv::flann::Index kdtree(kpointsMat, cv::flann::KDTreeIndexParams(1));
 
         cv::Mat H = cv::findHomography(objpoints, imgpoints);
 
@@ -1315,12 +779,18 @@ std::vector<FractalMarker> FractalMarkerDetector::detect(const cv::Mat &img, std
                     if(imgPoints[idx].x > 0 && imgPoints[idx].x < img.cols
                         && imgPoints[idx].y>0 && imgPoints[idx].y<img.rows)
                     {
-                        std::vector<std::pair<uint32_t, double>> res = kdtree.radiusSearch(kpoints, imgPoints[idx], 10);
-                        if(res.size() == 1)
+                        cv::Mat query(1, 2, CV_32F);
+                        query.at<float>(0, 0) = imgPoints[idx].x;
+                        query.at<float>(0, 1) = imgPoints[idx].y;
+                        cv::Mat resIdx, resDist;
+                        // radius=10 → squared-L2 ≤ 10, same threshold as the original picoflann search
+                        int found = kdtree.radiusSearch(query, resIdx, resDist, 10.0, 2);
+                        if (found == 1)
                         {
-                            if(kpoints[res[0].first].class_id == objKeyPoints[idx].class_id)
+                            int ki = resIdx.at<int>(0, 0);
+                            if(kpoints[ki].class_id == objKeyPoints[idx].class_id)
                             {
-                                p2d.push_back(kpoints[res[0].first].pt);
+                                p2d.push_back(kpoints[ki].pt);
                                 p3d.push_back(cv::Point3f(objPoints[idx].x, objPoints[idx].y, 0));
                             }
                         }
@@ -1593,50 +1063,68 @@ static std::string fractalTypeName(FractalType ft) {
 void generateFractalImage(OutputArray _img, const FractalType &ftype, int bitSize) {
     nanofractal::FractalMarkerSet fmset(fractalTypeName(ftype));
 
-    auto &outer = fmset.fractalMarkerCollection.at(fmset.idExternal);
-    int nBits = int(std::round(std::sqrt(float(outer.mat().total()))));
-    int imgSize = (nBits + 2) * bitSize;
+    // The innermost marker (highest id) controls the per-bit pixel size.
+    // bitSize is the desired pixel size of one bit in that innermost marker.
+    auto &innerM  = (--fmset.fractalMarkerCollection.end())->second;
+    auto &externM = fmset.fractalMarkerCollection.at(fmset.idExternal);
 
-    cv::Mat img(imgSize, imgSize, CV_8UC1, cv::Scalar(255));
+    int nBitsInner = int(std::round(std::sqrt(float(innerM.mat().total()))));
 
-    // Render outer markers first, inner last so inner paints over outer
-    std::vector<int> sortedIds;
-    for (const auto &kv : fmset.fractalMarkerCollection)
-        sortedIds.push_back(kv.first);
-    std::sort(sortedIds.begin(), sortedIds.end(), [&](int a, int b) {
-        return fmset.fractalMarkerCollection.at(a).getMarkerSize() >
-               fmset.fractalMarkerCollection.at(b).getMarkerSize();
-    });
+    // bs = normalized-units per pixel.  Sized so the inner marker's bits are bitSize px each.
+    float bs = innerM.getMarkerSize() / float(bitSize * (nBitsInner + 2));
 
-    // Normalized coords [-1,+1] → pixel coords in img
-    auto normToPix = [&](cv::Point2f n) -> cv::Point2f {
-        float px = float(bitSize) + (n.x + 1.0f) * float(nBits * bitSize) / 2.0f;
-        float py = float(bitSize) + (1.0f - n.y) * float(nBits * bitSize) / 2.0f;
-        return {px, py};
-    };
+    // Outer marker pixel dimensions
+    int markerSizePx = int(std::round(externM.getMarkerSize() / bs));
+    int nBitsExtern  = int(std::round(std::sqrt(float(externM.mat().total()))));
+    float extMBS     = float(markerSizePx) / float(nBitsExtern + 2); // px per bit (outer)
 
-    for (int id : sortedIds) {
-        auto &fm = fmset.fractalMarkerCollection.at(id);
-        int mBits = int(std::round(std::sqrt(float(fm.mat().total()))));
+    cv::Mat img = cv::Mat::zeros(markerSizePx, markerSizePx, CV_8UC1);
 
-        // Source: corners of the mBits×mBits bit matrix (col,row order = x,y)
-        std::vector<cv::Point2f> srcPts = {
-            {0.f, 0.f}, {float(mBits), 0.f},
-            {float(mBits), float(mBits)}, {0.f, float(mBits)}
-        };
-        // Destination: fm.keypts[0..3] mapped to pixels
-        // keypts ordering: TL(-1,+1), TR(+1,+1), BR(+1,-1), BL(-1,-1)
-        std::vector<cv::Point2f> dstPts;
-        for (int i = 0; i < 4; i++)
-            dstPts.push_back(normToPix(fm.keypts[i].pt));
-
-        cv::Mat markerBits;
-        fm.mat().convertTo(markerBits, CV_8UC1, 255.0); // 0→0 (black), 1→255 (white)
-
-        cv::Mat M = cv::getPerspectiveTransform(srcPts, dstPts);
-        cv::warpPerspective(markerBits, img, M, img.size(),
-                            cv::INTER_NEAREST, cv::BORDER_TRANSPARENT);
+    // Render outer marker: bit(y,x)==1 → white rectangle
+    {
+        cv::Mat m = externM.mat();
+        for (int y = m.rows - 1; y >= 0; y--)
+            for (int x = m.cols - 1; x >= 0; x--)
+                if (m.at<uchar>(y, x) == 1)
+                    img(cv::Range(int((1 + y) * extMBS), int((y + 2) * extMBS)),
+                        cv::Range(int((1 + x) * extMBS), int((x + 2) * extMBS))).setTo(255);
     }
+
+    // Render sub-markers depth-first; offsets are in the outer marker's pixel frame
+    cv::Point2f extTL = externM.keypts[0].pt; // TL corner in normalised space
+
+    std::vector<int> stack;
+    for (int id : externM.subMarkers())
+        stack.push_back(id);
+
+    while (!stack.empty()) {
+        int subId = stack.back(); stack.pop_back();
+        auto &subM = fmset.fractalMarkerCollection.at(subId);
+        cv::Mat m  = subM.mat();
+        int nBitsSub = int(std::round(std::sqrt(float(m.total()))));
+
+        float subSizePx = subM.getMarkerSize() / bs;
+        float subMBS    = subSizePx / float(nBitsSub + 2);
+
+        // Pixel offset of this sub-marker's TL corner from the outer image origin
+        cv::Point2f subTL = subM.keypts[0].pt;
+        float offX = std::fabs(subTL.x - extTL.x) / bs;
+        float offY = std::fabs(subTL.y - extTL.y) / bs;
+
+        for (int y = m.rows - 1; y >= 0; y--)
+            for (int x = m.cols - 1; x >= 0; x--)
+                if (m.at<uchar>(y, x) == 1)
+                    img(cv::Range(int((1 + y) * subMBS + offY), int((y + 2) * subMBS + offY)),
+                        cv::Range(int((1 + x) * subMBS + offX), int((x + 2) * subMBS + offX))).setTo(255);
+
+        for (int id : subM.subMarkers())
+            stack.push_back(id);
+    }
+
+    // White outer border, 1 outer-bit wide
+    int borderPx = int(extMBS);
+    cv::copyMakeBorder(img, img, borderPx, borderPx, borderPx, borderPx,
+                       cv::BORDER_CONSTANT, cv::Scalar::all(255));
 
     _img.assign(img);
 }
@@ -1651,41 +1139,44 @@ std::vector<FractalMarker> detectFractals(InputArray _img, FractalType ftype) {
     std::vector<cv::Point2f> p2d;
     auto detected = detector.detect(img, p3d, p2d);
 
-    // Need outer marker's normalized corner positions for the multi-marker fallback
+    if (detected.empty()) return {};
+
+    // All entries in detected are sub-markers of the same physical fractal marker.
+    // Find the outer marker to use its corners; fall back to detected[0] if not found.
     nanofractal::FractalMarkerSet fmset(fractalTypeName(ftype));
-    auto &tmplOuter = fmset.fractalMarkerCollection.at(fmset.idExternal);
+    const nanofractal::FractalMarker *outerDetected = nullptr;
+    for (const auto &d : detected)
+        if (d.id == fmset.idExternal) { outerDetected = &d; break; }
+    if (!outerDetected) outerDetected = &detected[0];
 
-    std::vector<FractalMarker> result;
-    for (size_t i = 0; i < detected.size(); i++) {
-        FractalMarker m;
-        m.type = ftype;
-        m.id = detected[i].id;
-        for (int c = 0; c < 4; c++)
-            m.corners.push_back(detected[i][c]);
+    FractalMarker m;
+    m.type = ftype;
+    m.id   = outerDetected->id;
+    for (int c = 0; c < 4; c++)
+        m.corners.push_back((*outerDetected)[c]);
 
-        if (detected.size() == 1 && !p2d.empty()) {
-            // Single marker: use all correspondences (inner + outer corners)
-            m.imgPoints = p2d;
-            m.objPoints = p3d;
-        } else {
-            // Multiple markers: use the 4 outer corners per instance
-            for (int c = 0; c < 4; c++) {
-                m.imgPoints.push_back(detected[i][c]);
-                m.objPoints.push_back(cv::Point3f(
-                    tmplOuter.keypts[c].pt.x, tmplOuter.keypts[c].pt.y, 0.f));
-            }
+    if (!p2d.empty()) {
+        m.imgPoints = p2d;
+        m.objPoints = p3d;
+    } else {
+        // Fallback: use only the 4 outer corners
+        auto &tmplOuter = fmset.fractalMarkerCollection.at(fmset.idExternal);
+        for (int c = 0; c < 4; c++) {
+            m.imgPoints.push_back(m.corners[c]);
+            m.objPoints.push_back(cv::Point3f(
+                tmplOuter.keypts[c].pt.x, tmplOuter.keypts[c].pt.y, 0.f));
         }
-        result.push_back(m);
     }
-    return result;
+    return {m};
 }
 
 void drawDetectedFractals(InputOutputArray _image, const std::vector<FractalMarker> &fractals,
-                          Scalar color) {
+                          Scalar color, bool drawAllImagePoints) {
     cv::Mat image = _image.getMat();
 
     float lineWidthF = std::max(1.f, std::min(5.f, float(image.cols) / 500.f));
     int lineWidth = int(std::round(lineWidthF));
+    int dotRadius = std::max(2, int(std::round(lineWidthF * 2.f)));
 
     for (const auto &m : fractals) {
         if (m.corners.size() < 4) continue;
@@ -1704,6 +1195,10 @@ void drawDetectedFractals(InputOutputArray _image, const std::vector<FractalMark
         center *= 0.25f;
         cv::putText(image, std::to_string(m.id), center,
                     cv::FONT_HERSHEY_SIMPLEX, 0.5, color, lineWidth);
+
+        if (drawAllImagePoints)
+            for (const auto &pt : m.imgPoints)
+                cv::circle(image, pt, dotRadius, color, -1);
     }
 }
 

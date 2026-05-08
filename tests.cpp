@@ -102,17 +102,44 @@ int testDiamond(){
 
 }
 
+int testFractal(){
+    cv::Mat image;
+    cv::aruco2::generateFractalImage(image, cv::aruco2::FRACTAL_3L_6);
+    cv::GaussianBlur(image, image, cv::Size(3, 3), 1.0);
+    // cv::waitKey(0);
+    auto fractals = cv::aruco2::detectFractals(image, cv::aruco2::FRACTAL_3L_6);
+    if(fractals.size() ==0){
+        std::cerr << "error in fractal detection, detected " << fractals.size() << " markers" << std::endl;
+        return 0;
+    }
+    std::cout << "detected fractal id: " << fractals[0].id << std::endl;
+
+    cv::cvtColor(image, image, cv::COLOR_GRAY2BGR);
+    cv::aruco2::drawDetectedFractals(image, fractals);
+
+    cv::Mat objPoints, imgPoints;
+    cv::aruco2::getSolvePnpPoints(fractals[0], imgPoints, objPoints);
+    std::cout << imgPoints << std::endl;
+    std::cout << objPoints << std::endl;
+
+    cv::imshow("fractal", image);
+    cv::waitKey(0);
+    return 1;
+}
+
 int main(){
-    if(testDiamond()==0)
-        std::cerr<<"error in test diamond"<<std::endl;
-    if(testMarker1()==0)
-        std::cerr<<"error in test marker"<<std::endl;
+    if(testFractal()==0)
+        std::cerr<<"error in test fractal"<<std::endl;
 
-    if(testBoard()==0)
-        std::cerr<<"error in test board"<<std::endl;
+    // if(testDiamond()==0)
+    //     std::cerr<<"error in test diamond"<<std::endl;
+    // if(testMarker1()==0)
+    //     std::cerr<<"error in test marker"<<std::endl;
 
-    if(testMarker2()==0)
-        std::cerr<<"error in test marker"<<std::endl;
+    // if(testBoard()==0)
+    //     std::cerr<<"error in test board"<<std::endl;
 
+    // if(testMarker2()==0)
+    //     std::cerr<<"error in test marker"<<std::endl;
 
 }
