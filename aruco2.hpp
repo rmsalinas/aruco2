@@ -231,7 +231,7 @@ CV_WRAP void drawDetectedMarkers(InputOutputArray image, const std::vector<Marke
  * cv::solvePnP(objPts, imgPts, cameraMatrix, distCoeffs, rvec, tvec);
  * @endcode
  */
-CV_WRAP void getSolvePnpPoints(const Marker marker, OutputArray imgPoints, OutputArray objPoints, float markerSize = 1.f);
+CV_WRAP void getSolvePnpPoints(const Marker &marker, OutputArray imgPoints, OutputArray objPoints, float markerSize = 1.f);
 
 
 /** @brief Result of detecting a ChArUco2-style grid board.
@@ -253,7 +253,7 @@ struct CV_EXPORTS_W_SIMPLE Board {
 private:
     std::vector<std::pair<int,cv::Point2f>> detectedBoardCorners;
     friend bool detectBoard(InputArray, cv::Size, DictionaryType, Board &, const DetectorParameters &, std::vector<int>);
-    friend void getSolvePnpPoints(Board, OutputArray, OutputArray, float);
+    friend void getSolvePnpPoints(const Board&, OutputArray, OutputArray, float);
     friend void drawDetectedBoard(InputOutputArray, const Board &, Scalar, bool);
 };
 
@@ -322,7 +322,7 @@ CV_WRAP void drawDetectedBoard(InputOutputArray image, const Board &board,
  *
  * @sa getSolvePnpPoints(const Marker, OutputArray, OutputArray)
  */
-CV_WRAP void getSolvePnpPoints(const Board board, OutputArray imgPoints, OutputArray objPoints, float markerSize = 1.f);
+CV_WRAP void getSolvePnpPoints(const Board &board, OutputArray imgPoints, OutputArray objPoints, float markerSize = 1.f);
 
 /** @brief A detected ChArUco2-style diamond marker.
  *
@@ -339,7 +339,7 @@ struct CV_EXPORTS_W_SIMPLE Diamond {
 private:
     std::vector<cv::Point2f> corners;
     friend std::vector<Diamond> detectDiamonds(InputArray, DictionaryType);
-    friend void getSolvePnpPoints(Diamond, OutputArray, OutputArray, float);
+    friend void getSolvePnpPoints(const Diamond&, OutputArray, OutputArray, float);
     friend void drawDetectedDiamonds(InputOutputArray, const std::vector<Diamond> &, Scalar, bool);
 };
 
@@ -410,7 +410,108 @@ CV_WRAP void drawDetectedDiamonds(InputOutputArray image, const std::vector<Diam
  * @sa getSolvePnpPoints(const Marker, OutputArray, OutputArray),
  *     getSolvePnpPoints(const Board, OutputArray, OutputArray)
  */
-CV_WRAP void getSolvePnpPoints(const Diamond diamond, OutputArray imgPoints, OutputArray objPoints, float markerSize = 1.f);
+CV_WRAP void getSolvePnpPoints(const Diamond &diamond, OutputArray imgPoints, OutputArray objPoints, float markerSize = 1.f);
+
+
+/** @brief Fractal marker type — selects the nested-marker configuration.
+ *
+ * Each variant is a 6×6-bit design with a different number of nesting levels:
+ * - FRACTAL_2L_6: 2 levels (outer + 1 inner marker)
+ * - FRACTAL_3L_6: 3 levels
+ * - FRACTAL_4L_6: 4 levels
+ * - FRACTAL_5L_6: 5 levels — most corners, most robust pose estimation
+ *
+ * More levels give more visible corners (and therefore better pose accuracy), but the
+ * inner markers become smaller and harder to detect at long range.
+ */
+enum FractalType {
+    FRACTAL_2L_6=0,
+    FRACTAL_3L_6,
+    FRACTAL_4L_6,
+    FRACTAL_5L_6
+};
+
+/** @brief A detected fractal marker.
+ *
+ * Fractal markers are nested ArUco-like markers: an outer 6×6 marker contains one or more
+ * smaller markers at increasing scales.  The nesting provides many more image-to-3D
+ * correspondences than a plain marker, improving pose accuracy and partial-occlusion
+ * robustness.
+ *
+ * 3-D coordinates use a normalised frame where the outer marker spans [-1, +1] on both
+ * axes (total extent = 2 units).  Pass @p markerSize to getSolvePnpPoints() to scale to
+ * physical units.
+ */
+struct CV_EXPORTS_W_SIMPLE FractalMarker {
+    CV_PROP_RW std::vector<cv::Point2f> corners; ///< 4 outer corners, clockwise from top-left
+    CV_PROP_RW FractalType type;                 ///< fractal configuration used for detection
+    CV_PROP_RW int id = -1;                      ///< id of the outer (external) marker
+private:
+    std::vector<cv::Point2f> imgPoints; ///< all 2-D correspondences (set by detectFractals)
+    std::vector<cv::Point3f> objPoints; ///< matching 3-D model points in normalised space
+    friend std::vector<FractalMarker> detectFractals(InputArray, FractalType);
+    friend void getSolvePnpPoints(const FractalMarker &, OutputArray, OutputArray, float);
+    friend void drawDetectedFractals(InputOutputArray, const std::vector<FractalMarker> &, Scalar);
+};
+
+/** @brief Render a fractal marker to a grayscale image.
+ *
+ * Generates a white-background image containing the full nested marker pattern.
+ * The image is square with side length @p (nBits + 2) * bitSize pixels, where
+ * @p nBits = 6 for all current configurations.
+ *
+ * @param img      output CV_8UC1 image
+ * @param ftype    fractal configuration (FRACTAL_2L_6 … FRACTAL_5L_6)
+ * @param bitSize  side length of one bit cell in pixels (default 20)
+ */
+CV_WRAP void generateFractalImage(OutputArray img, const FractalType &ftype, int bitSize=20);
+
+/** @brief Detect fractal markers in an image.
+ *
+ * Returns one FractalMarker per detected instance.  Each result carries the 4 outer
+ * corners and, when only one marker is present in the scene, all inner-corner
+ * correspondences needed for full pose estimation.
+ *
+ * @param image  input image (BGR or grayscale)
+ * @param ftype  fractal configuration to search for
+ * @return vector of detected fractal markers; empty if none found
+ */
+CV_WRAP std::vector<FractalMarker> detectFractals(InputArray image, FractalType ftype);
+
+/** @brief Draw detected fractal markers on an image.
+ *
+ * Draws a coloured quadrilateral around each marker, a red dot on @p corners[0] to
+ * indicate orientation, and the marker id at the centroid.
+ *
+ * @param image     input/output BGR or grayscale image
+ * @param fractals  vector returned by detectFractals()
+ * @param color     border and label colour (default green)
+ */
+CV_WRAP void drawDetectedFractals(InputOutputArray image, const std::vector<FractalMarker> &fractals,
+                                  Scalar color = Scalar(0, 255, 0));
+
+/** @brief Extract solvePnP inputs for a detected fractal marker.
+ *
+ * Copies the image-to-3D correspondences stored inside @p fractal into flat output
+ * arrays ready for cv::solvePnP().  When only one marker was present in the scene,
+ * @p imgPoints and @p objPoints contain all visible corners (outer and inner); otherwise
+ * only the 4 outer corners are returned.
+ *
+ * 3-D coordinates are in normalised space where the outer marker spans [-1, +1] on both
+ * axes.  @p markerSize scales them to physical units (e.g. metres).
+ *
+ * @param fractal     a detected fractal marker returned by detectFractals()
+ * @param imgPoints   output N×1 array of 2-D image points (CV_32FC2)
+ * @param objPoints   output N×1 array of 3-D object points (CV_32FC3)
+ * @param markerSize  physical side length of the outer marker; objPoints are scaled by
+ *                    @p markerSize / 2.  Default 1.f returns normalised-space points.
+ *
+ * @sa getSolvePnpPoints(const Marker &, OutputArray, OutputArray, float),
+ *     getSolvePnpPoints(const Board &, OutputArray, OutputArray, float),
+ *     getSolvePnpPoints(const Diamond &, OutputArray, OutputArray, float)
+ */
+CV_WRAP void getSolvePnpPoints(const FractalMarker &fractal, OutputArray imgPoints,
+                               OutputArray objPoints, float markerSize = 1.f);
 
 //! @}
 

@@ -790,7 +790,7 @@ void drawDetectedMarkers(InputOutputArray _image, const std::vector<Marker> &mar
 }
 
 
-void getSolvePnpPoints(const Marker marker, OutputArray imgPoints, OutputArray objPoints, float markerSize  ){
+void getSolvePnpPoints(const Marker &marker, OutputArray imgPoints, OutputArray objPoints, float markerSize  ){
     std::vector<cv::Point3f> markerCorners={ {-markerSize/2.f,markerSize/2.f,0.f},{markerSize/2.f,markerSize/2.f,0.f},{markerSize/2.f,-markerSize/2.f,0.f},{-markerSize/2.f,-markerSize/2.f,0.f}};
 
     cv::Mat(markerCorners).copyTo(objPoints);
@@ -1050,7 +1050,7 @@ void generateBoardImage(OutputArray img, Size bSize, DictionaryType dict,
 
   }
 
-  void getSolvePnpPoints(const Board board, OutputArray imgPoints, OutputArray objPoints, float markerSize  ){
+  void getSolvePnpPoints(const Board &board, OutputArray imgPoints, OutputArray objPoints, float markerSize  ){
 
     std::vector<cv::Point3f> objectPoints;
     std::vector<cv::Point2f> imagePoints;
@@ -1211,7 +1211,7 @@ void generateBoardImage(OutputArray img, Size bSize, DictionaryType dict,
            }
        }
    }
-   void getSolvePnpPoints(const Diamond diamond, OutputArray imgPoints, OutputArray objPoints, float markerSize  ){
+   void getSolvePnpPoints(const Diamond &diamond, OutputArray imgPoints, OutputArray objPoints, float markerSize  ){
 
        std::vector<cv::Point3f> objectPoints;
        std::vector<cv::Point2f> imagePoints;

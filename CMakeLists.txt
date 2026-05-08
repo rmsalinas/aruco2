@@ -23,7 +23,7 @@ endif()
 find_package(OpenCV REQUIRED)
 #include opencv dir
 include_directories(${OpenCV_INCLUDE_DIRS})
-SET(SRCARUCO2 aruco2.hpp aruco2.cpp aruco_dictionary.hpp aruco_dictionary.cpp)
+SET(SRCARUCO2 aruco2.hpp aruco2.cpp aruco_dictionary.hpp aruco_dictionary.cpp aruco2_fractal.cpp)
 # 5. Add Executable
 add_executable(tests tests.cpp ${SRCARUCO2})
 target_link_libraries(tests PRIVATE ${OpenCV_LIBS})

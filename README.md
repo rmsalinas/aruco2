@@ -8,6 +8,7 @@ A proposed replacement for the ArUco module in OpenCV 5, by the original ArUco a
 - **Safer defaults** — `errorCorrectionRate=0` instead of the legacy 0.6 that causes false positives
 - **Multi-dictionary** detection in one pass
 - **Boards and diamonds** based on [ChArUco2](https://github.com/rmsalinas/charuco2) — double the marker density, twice the corners at 75% occlusion
+- **Fractal markers** — nested multi-scale design gives many more corners for pose estimation, robust to heavy occlusion
 - **OpenCL acceleration** *(coming soon)*
 
 ---
@@ -54,6 +55,7 @@ for (auto &marker : cv::aruco2::detectMarkers(image))
 | Default error correction | 0.6 (causes false positives) | 0 (strict — raise only when needed) |
 | Board design | markers on half the squares | ChArUco2: markers on every square |
 | Diamond | separate concept using corner lists | first-class `Diamond` type with `vector<Marker>` |
+| Fractal markers | not supported | first-class `FractalMarker` type — nested design, many more pose corners |
 | Python result | separate lists | `markers = cv.aruco2.detectMarkers(image)` |
 
 ---
@@ -78,6 +80,12 @@ struct Diamond {
     DictionaryType dict;
     std::vector<Marker> markers;    // the 4 detected markers forming the diamond
 };
+
+struct FractalMarker {
+    std::vector<cv::Point2f> corners; // 4 outer corners, clockwise from top-left
+    FractalType type;                 // fractal configuration (FRACTAL_2L_6 … FRACTAL_5L_6)
+    int id = -1;                      // id of the outer marker
+};
 ```
 
 ---
@@ -89,18 +97,22 @@ struct Diamond {
 | `generateMarkerImage(img, dict, id)` | render a single marker to an image |
 | `generateBoardImage(img, size, dict)` | render a grid board to an image |
 | `generateDiamondImage(img, dict, ids)` | render a diamond (2×2 block) to an image |
+| `generateFractalImage(img, ftype)` | render a fractal marker to an image |
 | `detectMarkers(image, dict)` → `vector<Marker>` | find markers in an image |
 | `detectMarkers(image, {dict, …})` → `vector<Marker>` | find markers across multiple dictionaries |
 | `detectBoard(image, size, dict, board)` → `bool` | find a grid board |
 | `detectDiamonds(image, dict)` → `vector<Diamond>` | find diamond markers |
+| `detectFractals(image, ftype)` → `vector<FractalMarker>` | find fractal markers |
 | `drawDetectedMarkers(image, markers)` | draw marker outlines and ids |
 | `drawDetectedBoard(image, board)` | draw detected board corners |
 | `drawDetectedDiamonds(image, diamonds)` | draw diamond outlines and ids |
+| `drawDetectedFractals(image, fractals)` | draw fractal marker outlines and ids |
 | `getSolvePnpPoints(marker, imgPts, objPts)` | extract solvePnP inputs for a marker |
 | `getSolvePnpPoints(board, imgPts, objPts)` | extract solvePnP inputs for a board |
 | `getSolvePnpPoints(diamond, imgPts, objPts)` | extract solvePnP inputs for a diamond |
+| `getSolvePnpPoints(fractal, imgPts, objPts)` | extract solvePnP inputs for a fractal marker |
 
-Generate → Detect → Draw → Pose: four verbs, three target types, one consistent pattern.
+Generate → Detect → Draw → Pose: four verbs, four target types, one consistent pattern.
 
 ---
 
@@ -273,6 +285,47 @@ auto markers = cv::aruco2::detectMarkers(image, cv::aruco2::DICT_6X6_250, params
 
 ---
 
+### Fractal marker generation and detection
+
+A fractal marker is a nested design: the outer 6×6 marker contains one or more smaller
+markers at decreasing scales.  More levels mean more visible corners, giving better pose
+accuracy and robustness to partial occlusion.
+
+```cpp
+// Generate a FRACTAL_3L_6 image (3 nesting levels)
+cv::Mat fractalImg;
+cv::aruco2::generateFractalImage(fractalImg, cv::aruco2::FRACTAL_3L_6);
+cv::imwrite("fractal.png", fractalImg);
+
+// Detect fractal markers
+auto fractals = cv::aruco2::detectFractals(image, cv::aruco2::FRACTAL_3L_6);
+
+// Draw results
+cv::aruco2::drawDetectedFractals(image, fractals);
+
+for (const auto &f : fractals)
+    std::cout << "id=" << f.id << " corner0=" << f.corners[0] << "\n";
+```
+
+### Fractal marker pose estimation
+
+When only one fractal marker is visible, `getSolvePnpPoints` returns all inner and outer
+corners — far more correspondences than a plain marker provides:
+
+```cpp
+cv::Mat cameraMatrix, distCoeffs; // from calibration
+
+auto fractals = cv::aruco2::detectFractals(image, cv::aruco2::FRACTAL_3L_6);
+
+for (const auto &f : fractals) {
+    cv::Mat imgPts, objPts, rvec, tvec;
+    cv::aruco2::getSolvePnpPoints(f, imgPts, objPts, 0.10f); // 10 cm outer marker
+    cv::solvePnP(objPts, imgPts, cameraMatrix, distCoeffs, rvec, tvec);
+}
+```
+
+---
+
 ## Implementation
 
 ### Marker detection — based on ArUco Nano
@@ -360,6 +413,10 @@ cmake --build build
 | Pose estimation — single marker | done |
 | Pose estimation — board | done |
 | Pose estimation — diamond | done |
+| Generate fractal marker images | done |
+| Fractal marker detection | done |
+| Draw detected fractal markers | done |
+| Pose estimation — fractal marker | done |
 | Python bindings | designed, pending OpenCV integration |
 
 ---
