@@ -106,7 +106,7 @@ struct FractalMarker {
 | `drawDetectedMarkers(image, markers)` | draw marker outlines and ids |
 | `drawDetectedBoard(image, board)` | draw detected board corners |
 | `drawDetectedDiamonds(image, diamonds)` | draw diamond outlines and ids |
-| `drawDetectedFractals(image, fractals)` | draw fractal marker outlines and ids |
+| `drawDetectedFractals(image, fractals)` | draw fractal marker outlines, ids, and all matched image points (circles) |
 | `getSolvePnpPoints(marker, imgPts, objPts)` | extract solvePnP inputs for a marker |
 | `getSolvePnpPoints(board, imgPts, objPts)` | extract solvePnP inputs for a board |
 | `getSolvePnpPoints(diamond, imgPts, objPts)` | extract solvePnP inputs for a diamond |
@@ -300,8 +300,11 @@ cv::imwrite("fractal.png", fractalImg);
 // Detect fractal markers
 auto fractals = cv::aruco2::detectFractals(image, cv::aruco2::FRACTAL_3L_6);
 
-// Draw results
+// Draw results — outline, id, and all matched image points (default)
 cv::aruco2::drawDetectedFractals(image, fractals);
+
+// Outline and id only, no image points
+// cv::aruco2::drawDetectedFractals(image, fractals, cv::Scalar(0,255,0), false);
 
 for (const auto &f : fractals)
     std::cout << "id=" << f.id << " corner0=" << f.corners[0] << "\n";

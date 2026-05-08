@@ -487,7 +487,7 @@ CV_WRAP std::vector<FractalMarker> detectFractals(InputArray image, FractalType 
  * @param fractals         vector returned by detectFractals()
  * @param color            border and label colour (default green)
  * @param drawAllImagePoints  if true, draw a small circle at every matched image point
- *                         stored inside each FractalMarker (default false)
+ *                         stored inside each FractalMarker (default true)
  */
 CV_WRAP void drawDetectedFractals(InputOutputArray image, const std::vector<FractalMarker> &fractals,
                                   Scalar color = Scalar(0, 255, 0), bool drawAllImagePoints = true);
