@@ -1,6 +1,6 @@
 # aruco2 — A Simpler ArUco for OpenCV 5
 
-<img src="types.jpg" width="75%"/>
+<img src="types.jpg" width="60%"/>
 
 A proposed replacement for the ArUco module in OpenCV 5, by the original ArUco author.
 
@@ -314,7 +314,7 @@ for (const auto &f : fractals)
 
 ### Fractal marker pose estimation
 
-When only one fractal marker is visible, `getSolvePnpPoints` returns all inner and outer
+Use `getSolvePnpPoints` to obtain all inner and outer
 corners — far more correspondences than a plain marker provides:
 
 ```cpp
