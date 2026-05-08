@@ -81,6 +81,28 @@ struct Diamond {
 
 ---
 
+## API
+
+| Function | Description |
+|---|---|
+| `generateMarkerImage(img, dict, id)` | render a single marker to an image |
+| `generateBoardImage(img, size, dict)` | render a grid board to an image |
+| `generateDiamondImage(img, dict, ids)` | render a diamond (2×2 block) to an image |
+| `detectMarkers(image, dict)` → `vector<Marker>` | find markers in an image |
+| `detectMarkers(image, {dict, …})` → `vector<Marker>` | find markers across multiple dictionaries |
+| `detectBoard(image, size, dict, board)` → `bool` | find a grid board |
+| `detectDiamonds(image, dict)` → `vector<Diamond>` | find diamond markers |
+| `drawDetectedMarkers(image, markers)` | draw marker outlines and ids |
+| `drawDetectedBoard(image, board)` | draw detected board corners |
+| `drawDetectedDiamonds(image, diamonds)` | draw diamond outlines and ids |
+| `getSolvePnpPoints(marker, imgPts, objPts)` | extract solvePnP inputs for a marker |
+| `getSolvePnpPoints(board, imgPts, objPts)` | extract solvePnP inputs for a board |
+| `getSolvePnpPoints(diamond, imgPts, objPts)` | extract solvePnP inputs for a diamond |
+
+Generate → Detect → Draw → Pose: four verbs, three target types, one consistent pattern.
+
+---
+
 ## Examples
 
 ### Detect markers (single dictionary)
