@@ -8,6 +8,7 @@ A proposed replacement for the ArUco module in OpenCV 5, by the original ArUco a
 - **Safer defaults** — `errorCorrectionRate=0` instead of the legacy 0.6 that causes false positives
 - **Multi-dictionary** detection in one pass
 - **Boards and diamonds** based on [ChArUco2](https://github.com/rmsalinas/charuco2) — double the marker density, twice the corners at 75% occlusion
+- **OpenCL acceleration** *(coming soon)*
 
 ---
 

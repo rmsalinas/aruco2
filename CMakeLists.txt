@@ -21,12 +21,12 @@ endif()
 # 4. Find Dependencies
 # ---------------------------------------------------------------------------
 find_package(OpenCV REQUIRED)
-
+#include opencv dir
+include_directories(${OpenCV_INCLUDE_DIRS})
+SET(SRCARUCO2 aruco2.hpp aruco2.cpp aruco_dictionary.hpp aruco_dictionary.cpp)
 # 5. Add Executable
-add_executable(test test.cpp aruco.hpp aruco.cpp aruco_dictionary.hpp aruco_dictionary.cpp)
-
-# 6. Link Libraries
-target_link_libraries(test PRIVATE ${OpenCV_LIBS})
+add_executable(tests tests.cpp ${SRCARUCO2})
+target_link_libraries(tests PRIVATE ${OpenCV_LIBS})
 
 
 
