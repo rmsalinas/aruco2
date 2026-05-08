@@ -1,5 +1,7 @@
 # aruco2 — A Simpler ArUco for OpenCV 5
 
+![Marker types: marker, diamond, fractal, board](types.jpg)
+
 A proposed replacement for the ArUco module in OpenCV 5, by the original ArUco author.
 
 - **6.5× faster** detection engine based on [ArUco Nano](https://github.com/rmsalinas/aruco_nano)
