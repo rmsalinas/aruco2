@@ -53,20 +53,15 @@
 */
 
 #include "aruco2.hpp"
-#ifndef _ARUCONanoFractal_H_
-#define _ARUCONanoFractal_H_
-#define FractalNanoVersion 4
 #include <opencv2/imgproc.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/calib3d.hpp>
 #include <opencv2/flann.hpp>
 
 #include <map>
-#include <iostream>
 #include <vector>
 #include <cassert>
 #include <cstdint>
-#include <limits>
 #include <algorithm>
 #include <cstring>
 /**
@@ -86,7 +81,7 @@ namespace nanofractal{
 
 
 namespace nanofractal {
-namespace _private{
+
 struct Homographer{
     Homographer(const std::vector<cv::Point2f> & out ){
         std::vector<cv::Point2f>  in={cv::Point2f(0,0),cv::Point2f(1,0),cv::Point2f(1,1),cv::Point2f(0,1)};
@@ -252,7 +247,6 @@ void assignClass(const cv::Mat &im, std::vector<cv::KeyPoint>& kpoints, float si
         else if (nc > 2)
             kp.class_id = 2;
     }
-}
 }
 
 /**
@@ -740,8 +734,8 @@ std::vector<FractalMarker> FractalMarkerDetector::detect(const cv::Mat &img, std
     cv::Ptr<cv::FastFeatureDetector> fd = cv::FastFeatureDetector::create();
     fd->detect(bwimage, kpoints);
     //Filter kpoints (low response) and removing duplicated.
-    _private::kfilter(kpoints);
-    _private::assignClass(bwimage, kpoints);
+    kfilter(kpoints);
+    assignClass(bwimage, kpoints);
 
     if(kpoints.size()>0){
         // Build a 2-D kd-tree from the detected keypoints using cv::flann
@@ -875,7 +869,7 @@ std::vector<FractalMarker>  FractalMarkerDetector::detect(const cv::Mat &img){
 
         //extract the code
         //obtain the intensities of the bits using homography
-        _private::Homographer hom(markerCandidate);
+        Homographer hom(markerCandidate);
 
         for(auto b_vm:fractalMarkerSet.bits_ids)
         {
@@ -1042,7 +1036,6 @@ std::vector<cv::Point2f>  FractalMarkerDetector::sort( const  std::vector<cv::Po
     return res_marker;
 }
 }
-#endif
 
 // ---------------------------------------------------------------------------
 // cv::aruco2 wrappers
