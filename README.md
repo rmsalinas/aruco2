@@ -16,7 +16,7 @@ Detecting markers with the current OpenCV ArUco API looks like this:
 
 ```cpp
 // Current OpenCV aruco — a lot of boilerplate for a simple task
-cv::aruco::Dictionary dict = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_6X6_250);
+cv::aruco::Dictionary dict = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_ARUCO_MIP_36h12);
 cv::aruco::DetectorParameters params;
 params.errorCorrectionRate = 0.6; // dangerously high default — causes false positives
 cv::aruco::ArucoDetector detector(dict, params);
@@ -68,15 +68,12 @@ struct Board {
     cv::Size gridSize;              // columns × rows
     DictionaryType dict;
     std::vector<Marker> markers;    // detected markers (subset when partially occluded)
-    // pairs of <globalCornerId, imagePoint> — used by getSolvePnpPoints and drawDetectedBoard
-    std::vector<std::pair<int, cv::Point2f>> detectedBoardCorners;
 };
 
 struct Diamond {
     cv::Vec4i id;                   // ids of the 4 constituent markers (clockwise from top-left)
     DictionaryType dict;
     std::vector<Marker> markers;    // the 4 detected markers forming the diamond
-    std::vector<cv::Point2f> corners; // 9 points of the 3×3 corner grid — used by getSolvePnpPoints
 };
 ```
 

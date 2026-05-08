@@ -250,9 +250,11 @@ struct CV_EXPORTS_W_SIMPLE Board {
     CV_PROP_RW cv::Size gridSize;              ///< board dimensions: width × height in markers
     CV_PROP_RW DictionaryType dict;            ///< dictionary used for all markers on the board
     CV_PROP_RW std::vector<Marker> markers;    ///< detected markers (subset of the full board)
-
-    ///Result of detection. Contains the pairs <boardCornerId, imageCorner>. Required for getSolvePnpPoints
+private:
     std::vector<std::pair<int,cv::Point2f>> detectedBoardCorners;
+    friend bool detectBoard(InputArray, cv::Size, DictionaryType, Board &, const DetectorParameters &, std::vector<int>);
+    friend void getSolvePnpPoints(Board, OutputArray, OutputArray, float);
+    friend void drawDetectedBoard(InputOutputArray, const Board &, Scalar, bool);
 };
 
 /** @brief Generate a grid board image ready for printing.
@@ -334,9 +336,11 @@ struct CV_EXPORTS_W_SIMPLE Diamond {
     CV_PROP_RW cv::Vec4i id;                   ///< ids of the 4 constituent markers (clockwise from top-left)
     CV_PROP_RW DictionaryType dict;            ///< dictionary used for the 4 markers
     CV_PROP_RW std::vector<Marker> markers;    ///< the 4 detected markers forming the diamond
-
-    ///Result of detection. Contains the 9 points of the diamond
+private:
     std::vector<cv::Point2f> corners;
+    friend std::vector<Diamond> detectDiamonds(InputArray, DictionaryType);
+    friend void getSolvePnpPoints(Diamond, OutputArray, OutputArray, float);
+    friend void drawDetectedDiamonds(InputOutputArray, const std::vector<Diamond> &, Scalar, bool);
 };
 
 /** @brief Generate a ChArUco2-style diamond image ready for printing.

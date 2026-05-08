@@ -98,6 +98,7 @@ int testDiamond(){
      cout<<objPoints<<endl;
      cv::imshow("diamond",image);
      cv::waitKey(0);
+     return 1;
 
 }
 
