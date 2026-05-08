@@ -4,7 +4,7 @@
 #pragma once
 
 #include <opencv2/core.hpp>
-#include "aruco.hpp"
+#include "aruco2.hpp"
 namespace cv :: aruco2{
 
 //! @addtogroup objdetect_aruco

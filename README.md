@@ -68,12 +68,15 @@ struct Board {
     cv::Size gridSize;              // columns × rows
     DictionaryType dict;
     std::vector<Marker> markers;    // detected markers (subset when partially occluded)
+    // pairs of <globalCornerId, imagePoint> — used by getSolvePnpPoints and drawDetectedBoard
+    std::vector<std::pair<int, cv::Point2f>> detectedBoardCorners;
 };
 
 struct Diamond {
     cv::Vec4i id;                   // ids of the 4 constituent markers (clockwise from top-left)
     DictionaryType dict;
     std::vector<Marker> markers;    // the 4 detected markers forming the diamond
+    std::vector<cv::Point2f> corners; // 9 points of the 3×3 corner grid — used by getSolvePnpPoints
 };
 ```
 
@@ -84,7 +87,7 @@ struct Diamond {
 ### Detect markers (single dictionary)
 
 ```cpp
-#include "aruco.hpp"
+#include "aruco2.hpp"
 
 cv::Mat image = cv::imread("scene.jpg");
 
@@ -136,15 +139,19 @@ Each marker is drawn with a coloured outline, the id at its centre, and a dot on
 
 ```cpp
 cv::Mat markerImg;
-cv::aruco2::generateMarkerImage(cv::aruco2::DICT_6X6_250, 42, 300, markerImg);
+cv::aruco2::generateMarkerImage(markerImg, cv::aruco2::DICT_6X6_250, 42);
 cv::imwrite("marker_42.png", markerImg);
 ```
+
+The optional fourth argument controls bit size in pixels (default 20). A white outer border is added by default (`externalBorder=true`).
+
+---
 
 ### Generate a diamond image
 
 ```cpp
 cv::Mat diamondImg;
-cv::aruco2::generateDiamondImage(cv::aruco2::DICT_6X6_250, {10, 11, 12, 13}, 100, diamondImg);
+cv::aruco2::generateDiamondImage(diamondImg, cv::aruco2::DICT_6X6_250, {10, 11, 12, 13});
 cv::imwrite("diamond.png", diamondImg);
 ```
 
@@ -187,9 +194,13 @@ bool found = cv::aruco2::detectBoard(image, cv::Size(4, 3),
 if (found) {
     std::cout << "Detected " << board.markers.size() << " of 12 markers\n";
 
-    cv::Mat imgPts, objPts;
+    // Draw detected corners
+    cv::aruco2::drawDetectedBoard(image, board);
+
+    // Pose estimation — uses all detected board corners, robust to partial occlusion
+    cv::Mat imgPts, objPts, rvec, tvec;
     cv::aruco2::getSolvePnpPoints(board, imgPts, objPts, 0.05f); // 5 cm markers
-    // pass to solvePnP as usual
+    cv::solvePnP(objPts, imgPts, cameraMatrix, distCoeffs, rvec, tvec);
 }
 ```
 
@@ -203,19 +214,23 @@ found, board = cv.aruco2.detectBoard(image, (4, 3), cv.aruco2.DICT_6X6_250)
 
 ### Diamond detection and pose estimation
 
-A diamond is a 2×2 block of markers.  Its identity is the combination of the four constituent marker ids, stored as a `Vec4i`.
+A diamond is a 2×2 block of markers.  Its identity is the combination of the four constituent marker ids, stored as a `Vec4i`.  `getSolvePnpPoints` returns the full 9-point 3×3 corner grid of the diamond.
 
 ```cpp
 auto diamonds = cv::aruco2::detectDiamonds(image, cv::aruco2::DICT_6X6_250);
+
+// Draw detected diamonds
+cv::aruco2::drawDetectedDiamonds(image, diamonds);
 
 for (const auto &d : diamonds) {
     std::cout << "Diamond ids: "
               << d.id[0] << " " << d.id[1] << " "
               << d.id[2] << " " << d.id[3] << "\n";
 
-    cv::Mat imgPts, objPts;
+    // imgPts and objPts are 9×1 (full 3×3 corner grid)
+    cv::Mat imgPts, objPts, rvec, tvec;
     cv::aruco2::getSolvePnpPoints(d, imgPts, objPts, 0.05f); // 5 cm markers
-    // pass to solvePnP as usual
+    cv::solvePnP(objPts, imgPts, cameraMatrix, distCoeffs, rvec, tvec);
 }
 ```
 
@@ -314,13 +329,15 @@ cmake --build build
 | Multi-dictionary detection | done |
 | Draw detected markers | done |
 | Generate marker images | done |
-| Generate diamond images | in progress |
-| Pose estimation — single marker | done |
 | Generate board images | done |
-| Board detection | in progress |
-| Pose estimation — board | in progress |
-| Diamond detection | in progress |
-| Pose estimation — diamond | in progress |
+| Generate diamond images | done |
+| Board detection | done |
+| Draw detected board | done |
+| Diamond detection | done |
+| Draw detected diamonds | done |
+| Pose estimation — single marker | done |
+| Pose estimation — board | done |
+| Pose estimation — diamond | done |
 | Python bindings | designed, pending OpenCV integration |
 
 ---

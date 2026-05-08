@@ -143,49 +143,25 @@ struct CV_EXPORTS_W_SIMPLE Marker {
     CV_PROP_RW std::vector<cv::Point2f> corners; ///< four corner points in clockwise order
     CV_PROP_RW int id = -1;                      ///< marker id; -1 if unidentified
     CV_PROP_RW DictionaryType dict = DictionaryType(-1); ///< dictionary this marker belongs to
+    cv::Point2f operator[](size_t i) const { return corners[i]; }
+    size_t size() const { return corners.size(); }
 };
 
 
 /** @brief Generate a canonical marker image ready for printing.
  *
+ * @param img         output grayscale image (CV_8UC1)
  * @param dictionary  predefined dictionary the marker belongs to
  * @param id          marker identifier; must be a valid index in the chosen dictionary
- * @param sidePixels  output image size in pixels (square); must be >= markerSize + 2*borderBits
- * @param img         output grayscale image (CV_8UC1)
- * @param borderBits  width of the black border in marker bits (default 1)
- *
+ * @param bitSize  output size in pixels of each marker bit
+ * @param externalBorder indicates whether to add a white border around the marker
  * @code
  * cv::Mat markerImg;
- * cv::aruco2::generateMarkerImage(DICT_6X6_250, 42, 200, markerImg);
+ * cv::aruco2::generateMarkerImage(markerImg,DICT_6X6_250, 42);
  * cv::imwrite("marker_42.png", markerImg);
  * @endcode
  */
-CV_WRAP void generateMarkerImage(const DictionaryType &dictionary, int id, int sidePixels,
-                                 OutputArray img, int borderBits = 1);
-
-/** @brief Generate a ChArUco2-style diamond image ready for printing.
- *
- * A diamond is a 2×2 block of ArUco markers following the ChArUco2 design: standard markers
- * on black squares and inverted markers on white squares.  The four marker ids are arranged
- * in clockwise order from the top-left, matching the `Diamond::id` field returned by
- * detectDiamonds().
- *
- * @param dictionary    predefined dictionary for all four markers
- * @param ids           ids of the 4 constituent markers in clockwise order from top-left
- * @param markerSizePix side length of each individual marker in pixels (default 100);
- *                      the output image will be 2×markerSizePix × 2×markerSizePix pixels
- * @param img           output grayscale image (CV_8UC1)
- *
- * @code
- * cv::Mat diamondImg;
- * cv::aruco2::generateDiamondImage(DICT_6X6_250, {10, 11, 12, 13}, 100, diamondImg);
- * cv::imwrite("diamond.png", diamondImg);
- * @endcode
- *
- * Pass the same `dictionary` and `ids` to detectDiamonds() for detection.
- */
-CV_WRAP void generateDiamondImage(const DictionaryType &dictionary, const cv::Vec4i &ids,
-                                  int markerSizePix, OutputArray img);
+CV_WRAP void generateMarkerImage(OutputArray img,const DictionaryType &dictionary, int id, unsigned int bitSize=20,bool externalBorder=true);
 
 
 /** @brief Detect ArUco markers in an image using a single dictionary.
@@ -274,6 +250,9 @@ struct CV_EXPORTS_W_SIMPLE Board {
     CV_PROP_RW cv::Size gridSize;              ///< board dimensions: width × height in markers
     CV_PROP_RW DictionaryType dict;            ///< dictionary used for all markers on the board
     CV_PROP_RW std::vector<Marker> markers;    ///< detected markers (subset of the full board)
+
+    ///Result of detection. Contains the pairs <boardCornerId, imageCorner>. Required for getSolvePnpPoints
+    std::vector<std::pair<int,cv::Point2f>> detectedBoardCorners;
 };
 
 /** @brief Generate a grid board image ready for printing.
@@ -281,9 +260,7 @@ struct CV_EXPORTS_W_SIMPLE Board {
  * @param img          output grayscale image (CV_8UC1) containing the full board
  * @param boardSize    board layout as columns × rows (e.g. `cv::Size(4, 3)`)
  * @param dict         dictionary used for the markers
- * @param markerSizePix  side length of each marker in pixels (default 50);
- *                     the output image will be `boardSize.width * markerSizePix` ×
- *                     `boardSize.height * markerSizePix` pixels
+ * @param bitSize     size of each marker bit in pixels (default 25)
  * @param ids          optional custom marker id list in row-major order;
  *                     if empty, ids 0…(cols*rows−1) are used
  *
@@ -291,7 +268,7 @@ struct CV_EXPORTS_W_SIMPLE Board {
  * Pass the same `boardSize`, `dict`, and `ids` to detectBoard() for detection.
  */
 CV_WRAP void generateBoardImage(OutputArray img, Size boardSize, DictionaryType dict,
-                                int markerSizePix = 50, std::vector<int> ids = {});
+                                int bitSize = 25, std::vector<int> ids = {});
 
 
 /** @brief Detect a rectangular grid board of ArUco markers.
@@ -314,6 +291,18 @@ CV_WRAP bool detectBoard(InputArray image, cv::Size gridSize, DictionaryType dic
                          CV_OUT Board &board, const DetectorParameters &detectorParams = {},
                          std::vector<int> ids = {});
 
+/** @brief Draw detected board corners and optionally marker ids onto an image.
+ *
+ * @param image          input/output image (1 or 3 channels); modified in place
+ * @param board          board returned by detectBoard()
+ * @param color          color used to draw corner markers and text (default: green)
+ * @param drawMarkerIds  if true, draws the id of each detected marker at its centroid
+ *
+ * For each detected board corner a filled circle is drawn together with its global corner id.
+ * Useful for verifying that the board detection and corner assignment are correct.
+ */
+CV_WRAP void drawDetectedBoard(InputOutputArray image, const Board &board,
+                               Scalar color = Scalar(0, 255, 0),bool drawMarkerIds=false);
 
 
 /** @brief Compute image and object points for a detected board to pass to solvePnP().
@@ -345,8 +334,33 @@ struct CV_EXPORTS_W_SIMPLE Diamond {
     CV_PROP_RW cv::Vec4i id;                   ///< ids of the 4 constituent markers (clockwise from top-left)
     CV_PROP_RW DictionaryType dict;            ///< dictionary used for the 4 markers
     CV_PROP_RW std::vector<Marker> markers;    ///< the 4 detected markers forming the diamond
+
+    ///Result of detection. Contains the 9 points of the diamond
+    std::vector<cv::Point2f> corners;
 };
 
+/** @brief Generate a ChArUco2-style diamond image ready for printing.
+ *
+ * A diamond is a 2×2 block of ArUco markers following the ChArUco2 design: standard markers
+ * on black squares and inverted markers on white squares.  The four marker ids are arranged
+ * in clockwise order from the top-left, matching the `Diamond::id` field returned by
+ * detectDiamonds().
+ *
+ * @param img           output grayscale image (CV_8UC1)
+ * @param dictionary    predefined dictionary for all four markers
+ * @param ids           ids of the 4 constituent markers in clockwise order from top-left
+ * @param bitSize      size of each marker bit in pixels (default 20)
+ *
+ * @code
+ * cv::Mat diamondImg;
+ * cv::aruco2::generateDiamondImage(diamondImg,DICT_6X6_250, {10, 11, 12, 13} );
+ * cv::imwrite("diamond.png", diamondImg);
+ * @endcode
+ *
+ * Pass the same `dictionary` and `ids` to detectDiamonds() for detection.
+ */
+CV_WRAP void generateDiamondImage(OutputArray img,const DictionaryType &dictionary, const cv::Vec4i &ids,
+                                  int bitSize=20);
 
 /** @brief Detect ChArUco2-style diamond markers in an image.
  *
@@ -356,20 +370,36 @@ struct CV_EXPORTS_W_SIMPLE Diamond {
  *
  * @param image        input image (grayscale or BGR)
  * @param dict         dictionary used to print the diamond markers
- * @param detectorParams  detection tuning parameters
  * @return             vector of detected Diamond objects; empty if none found
  */
-CV_WRAP std::vector<Diamond> detectDiamonds(InputArray image, DictionaryType dict,
-                                          const DetectorParameters &detectorParams = {});
+CV_WRAP std::vector<Diamond> detectDiamonds(InputArray image, DictionaryType dict);
+
+/** @brief Draw detected diamond outlines and optionally constituent marker ids onto an image.
+ *
+ * @param image          input/output image (1 or 3 channels); modified in place
+ * @param diamonds       diamonds returned by detectDiamonds()
+ * @param color          color used to draw the diamond outline and corner squares (default: green)
+ * @param drawMarkerIds  if true, draws the id of each constituent marker at its centroid
+ *
+ * For each diamond the function draws:
+ * - a quadrilateral outline connecting the 4 outer corners
+ * - a small filled square at each of the 9 grid corners
+ * - the Vec4i diamond id as text at the diamond centroid
+ */
+CV_WRAP void drawDetectedDiamonds(InputOutputArray image, const std::vector<Diamond> &diamonds,
+                               Scalar color = Scalar(0, 255, 0),bool drawMarkerIds=false);
 
 
 /** @brief Compute image and object points for a detected diamond to pass to solvePnP().
  *
+ * Returns all 9 points of the diamond's 3×3 corner grid: the 4 outer corners, the 4
+ * edge mid-corners, and the central intersection point.
+ *
  * @param diamond    a detected diamond returned by detectDiamonds()
- * @param imgPoints  output array of marker corner image coordinates for all 4 markers (CV_32FC2)
- * @param objPoints  output array of corresponding 3-D object points in diamond coordinates
- *                   (CV_32FC3).  The origin is at the top-left marker corner; X points right,
- *                   Y points down, Z=0.
+ * @param imgPoints  output 9×1 array of image coordinates of the diamond's 3×3 corner grid (CV_32FC2)
+ * @param objPoints  output 9×1 array of corresponding 3-D object points in diamond coordinates
+ *                   (CV_32FC3).  The origin is at the top-left corner; X points right,
+ *                   Y points down, Z=0.  Adjacent grid points are spaced markerSize apart.
  * @param markerSize  physical side length of one marker (e.g. metres); objPoints are scaled
  *                    by this value.  Default 1.f returns unit-size points.
  *
