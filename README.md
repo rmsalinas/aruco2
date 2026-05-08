@@ -1,6 +1,6 @@
 # aruco2 — A Simpler ArUco for OpenCV 5
 
-![Marker types: marker, diamond, fractal, board](types.jpg)
+<img src="types.jpg" width="75%"/>
 
 A proposed replacement for the ArUco module in OpenCV 5, by the original ArUco author.
 
