@@ -4,6 +4,7 @@ A proposed replacement for the ArUco module in OpenCV 5, by the original ArUco a
 
 - **6.5× faster** detection engine based on [ArUco Nano](https://github.com/rmsalinas/aruco_nano)
 - **Simpler API** — one function call, results in a single `vector<Marker>` (no parallel vectors)
+- **Single public header** — `#include "aruco2.hpp"` is all you need; no extra headers to hunt down
 - **Safer defaults** — `errorCorrectionRate=0` instead of the legacy 0.6 that causes false positives
 - **Multi-dictionary** detection in one pass
 - **Boards and diamonds** based on [ChArUco2](https://github.com/rmsalinas/charuco2) — double the marker density, twice the corners at 75% occlusion
@@ -46,6 +47,7 @@ for (auto &marker : cv::aruco2::detectMarkers(image))
 | | Current OpenCV aruco | aruco2 |
 |---|---|---|
 | Entry point | `ArucoDetector` class instance | free function `detectMarkers()` |
+| Public API surface | multiple headers | single `aruco2.hpp` |
 | Result type | two parallel vectors (`corners`, `ids`) | `vector<Marker>` — id and corners travel together |
 | Multi-dictionary | not supported in one call | `detectMarkers(image, {DICT_A, DICT_B})` |
 | Default error correction | 0.6 (causes false positives) | 0 (strict — raise only when needed) |
