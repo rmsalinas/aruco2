@@ -6,8 +6,6 @@
 #include <vector>
 #include <queue>
 #include <map>
-#warning "REMOVE"
-#include <opencv2/highgui.hpp>
 
 namespace   {
 using namespace cv;
@@ -800,8 +798,7 @@ void getSolvePnpPoints(const Marker &marker, OutputArray imgPoints, OutputArray 
 
 
 bool detectBoard(InputArray image, cv::Size gridSize, DictionaryType dict,
-            CV_OUT Board &board_, const DetectorParameters &detectorParams,
-                 std::vector<int> ids){
+            CV_OUT Board &board_, std::vector<int> ids){
 
 
     CV_Assert(gridSize.width > 0 && gridSize.height > 0  );

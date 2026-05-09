@@ -9,6 +9,8 @@ int testMarker1(){
     cv::Mat image;
     cv::aruco2::generateMarkerImage(image,cv::aruco2::DICT_ARUCO_MIP_36h12,1,20);
 
+    //save to file
+    cv::imwrite("marker.jpg",image);
     auto markers=cv::aruco2::detectMarkers(image,cv::aruco2::DICT_ARUCO_MIP_36h12);
     if(markers.size()!=1){
         std::cerr<<"error in marker detection, detected "<<markers.size()<<" markers"<<std::endl;
@@ -67,6 +69,8 @@ int testMarker2(){
 int testBoard(){
     cv::Mat image;
     cv::aruco2::generateBoardImage(image, cv::Size(9,5), cv::aruco2::DICT_ARUCO_MIP_36h12 );
+    //Save to file
+    cv::imwrite("board.jpg",image);
     cv::aruco2::Board board;
     if( cv::aruco2::detectBoard(image,cv::Size(9,5),cv::aruco2::DICT_ARUCO_MIP_36h12,board)){
         //make image bgr
@@ -81,11 +85,14 @@ int testBoard(){
     else return 0;
     cv::imshow("board",image);
     cv::waitKey(0);
+    return 1;
 }
 int testDiamond(){
 
     cv::Mat image;
     cv::aruco2::generateDiamondImage(image,cv::aruco2::DICT_ARUCO_MIP_36h12,cv::Vec4i(0,1,2,3));
+    //save to file
+    cv::imwrite("diamond.jpg",image);
      auto diamonds=cv::aruco2::detectDiamonds(image,cv::aruco2::DICT_ARUCO_MIP_36h12);
     if(diamonds.size()==0) return 1;
      std::cout<<"detected diamond id: "<<diamonds[0].id<<std::endl;
@@ -105,6 +112,8 @@ int testDiamond(){
 int testFractal(){
     cv::Mat image;
     cv::aruco2::generateFractalImage(image, cv::aruco2::FRACTAL_3L_6);
+    //save to file
+    cv::imwrite("fractal.jpg",image);
     cv::GaussianBlur(image, image, cv::Size(3, 3), 1.0);
     // cv::waitKey(0);
     auto fractals = cv::aruco2::detectFractals(image, cv::aruco2::FRACTAL_3L_6);
@@ -131,15 +140,15 @@ int main(){
     if(testFractal()==0)
         std::cerr<<"error in test fractal"<<std::endl;
 
-    // if(testDiamond()==0)
-    //     std::cerr<<"error in test diamond"<<std::endl;
-    // if(testMarker1()==0)
-    //     std::cerr<<"error in test marker"<<std::endl;
+    if(testDiamond()==0)
+        std::cerr<<"error in test diamond"<<std::endl;
+    if(testMarker1()==0)
+        std::cerr<<"error in test marker"<<std::endl;
 
-    // if(testBoard()==0)
-    //     std::cerr<<"error in test board"<<std::endl;
+    if(testBoard()==0)
+        std::cerr<<"error in test board"<<std::endl;
 
-    // if(testMarker2()==0)
-    //     std::cerr<<"error in test marker"<<std::endl;
+    if(testMarker2()==0)
+        std::cerr<<"error in test marker"<<std::endl;
 
 }

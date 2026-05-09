@@ -252,7 +252,7 @@ struct CV_EXPORTS_W_SIMPLE Board {
     CV_PROP_RW std::vector<Marker> markers;    ///< detected markers (subset of the full board)
 private:
     std::vector<std::pair<int,cv::Point2f>> detectedBoardCorners;
-    friend bool detectBoard(InputArray, cv::Size, DictionaryType, Board &, const DetectorParameters &, std::vector<int>);
+    friend bool detectBoard(InputArray, cv::Size, DictionaryType, Board &,  std::vector<int>);
     friend void getSolvePnpPoints(const Board&, OutputArray, OutputArray, float);
     friend void drawDetectedBoard(InputOutputArray, const Board &, Scalar, bool);
 };
@@ -279,7 +279,6 @@ CV_WRAP void generateBoardImage(OutputArray img, Size boardSize, DictionaryType 
  * @param gridSize     board layout as columns × rows (e.g. `cv::Size(4, 3)` for a 4×3 grid)
  * @param dict         dictionary used to print the board
  * @param board        output Board populated with the detected markers
- * @param detectorParams  detection tuning parameters
  * @param ids          optional custom marker id list in row-major order;
  *                     if empty, ids 0…(cols*rows−1) are assumed
  * @return             true if at least one board marker was detected
@@ -290,8 +289,7 @@ CV_WRAP void generateBoardImage(OutputArray img, Size boardSize, DictionaryType 
  * @endcode
  */
 CV_WRAP bool detectBoard(InputArray image, cv::Size gridSize, DictionaryType dict,
-                         CV_OUT Board &board, const DetectorParameters &detectorParams = {},
-                         std::vector<int> ids = {});
+                         CV_OUT Board &board,  std::vector<int> ids = {});
 
 /** @brief Draw detected board corners and optionally marker ids onto an image.
  *
