@@ -7,6 +7,8 @@
 #include <queue>
 #include <map>
 
+#include <opencv2/highgui.hpp>
+
 namespace   {
 using namespace cv;
 using namespace cv :: aruco2;
@@ -829,6 +831,7 @@ bool detectBoard(InputArray image, cv::Size gridSize, DictionaryType dict,
     if(allMarkers.empty())return false;
 
 
+
     //obtain the connected components
     std::vector<std::vector<Marker> > connected_markers=connectedMarkerComponents(allMarkers);
 
@@ -841,18 +844,21 @@ bool detectBoard(InputArray image, cv::Size gridSize, DictionaryType dict,
         //for each corner, of each marker we will analyze its nearst neighbor. If is really connected, we will check if
         //the connection is consistent
         for(const auto &marker:comp){
-            std::vector<int> indices;
-            std::vector<float> dists;
             for(int c=0;c<4;c++){
+                std::vector<int> indices;
+                std::vector<float> dists;
                 cv::Mat query = (cv::Mat_<float>(1, 2) << marker[c].x, marker[c].y); // Single 2D query point
                 int nn=findex->radiusSearch(query, indices, dists, threshold*threshold, marker.size());
-                for(int ix=0;ix<nn;ix++){
+                for(int ix=0;ix<std::min(nn,int(indices.size()));ix++){
                     int idx=indices[ix];
                     if(comp[idx/4].id==marker.id) continue;//same marker
                     //check if the connection is consistent, i.e., if the global corner ids are the same
                     int gid1=getGlobalCornerID(marker.id,c,gridSize,ids);
                     int gid2=getGlobalCornerID(comp[idx/4].id,idx%4,gridSize,ids);
                     if(gid1!=gid2){
+                        for(size_t ixx=0;ixx<indices.size();ixx++){
+                            std::cout<<indices[ixx]<<" "<< dists[ixx]<<std::endl;
+                        }
                         CV_LOG_WARNING(NULL, "Marker " << marker.id << " corner " << c << " connected to marker " << comp[idx/4].id << " corner " << (idx%4) << " but global corner ids differ: " << gid1 << " vs " << gid2);
                         is_consistent=false;
                     }
@@ -1106,6 +1112,7 @@ void generateBoardImage(OutputArray img, Size bSize, DictionaryType dict,
                    query.ptr<float>(0)[0]=marker[c].x;
                    query.ptr<float>(0)[1]=marker[c].y;
                    int nn=flannIndex->radiusSearch(query, indices, dists, threshold, 4);
+                   nn=std::min(int(indices.size()),nn);
                    //  std::cout<<"nn="<<nn<<" for marker "<<marker.id<<" corner "<<c<<std::endl;
                    totalSharedCorners+=nn-1;
                    if( nn>cornerWithMostSharedCorners)
