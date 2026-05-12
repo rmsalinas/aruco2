@@ -1240,8 +1240,8 @@ void generateBoardImage(OutputArray img, Size bSize, DictionaryType dict,
        for(int row=0;row<3;row++){
            for(int col=0;col<3;col++,idx++){
                cv::Point3f p3d;
-               p3d.x = col * markerSize;
-               p3d.y = row * markerSize;
+               p3d.x = (col - 1) * markerSize;
+               p3d.y = (row - 1) * markerSize;
                p3d.z = 0;
                objectPoints.push_back(p3d);
                imagePoints.push_back(diamond.corners[idx]);

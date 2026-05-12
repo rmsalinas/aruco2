@@ -50,6 +50,9 @@ target_link_libraries(aruco2_print PRIVATE ${OpenCV_LIBS})
 add_executable(aruco2_detect_markers utils/aruco2_detect_markers.cpp ${SRCARUCO2})
 target_link_libraries(aruco2_detect_markers PRIVATE ${OpenCV_LIBS})
 
+add_executable(aruco2_detect_diamonds utils/aruco2_detect_diamonds.cpp ${SRCARUCO2})
+target_link_libraries(aruco2_detect_diamonds PRIVATE ${OpenCV_LIBS})
+
 # ---------------------------------------------------------------------------
 # 8. Status Printout
 # ---------------------------------------------------------------------------
