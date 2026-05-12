@@ -1241,7 +1241,7 @@ void generateBoardImage(OutputArray img, Size bSize, DictionaryType dict,
            for(int col=0;col<3;col++,idx++){
                cv::Point3f p3d;
                p3d.x = (col - 1) * markerSize;
-               p3d.y = (row - 1) * markerSize;
+               p3d.y = (1 - row) * markerSize;
                p3d.z = 0;
                objectPoints.push_back(p3d);
                imagePoints.push_back(diamond.corners[idx]);
