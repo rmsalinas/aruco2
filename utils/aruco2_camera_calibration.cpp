@@ -1,6 +1,6 @@
 // Camera calibration using the aruco2 Board.
 // Usage: camera_calibration <image_folder> [-w=9] [-h=5] [-dict=21] [-ms=0.05] [-o=calibration.yaml] [-show=false]
-#include "aruco2.hpp"
+#include "opencv2/objdetect/aruco2.hpp"
 #include <opencv2/calib3d.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
@@ -57,6 +57,8 @@ int main(int argc, char** argv) {
 
     for (auto& path : paths) {
         cv::Mat image = cv::imread(path, cv::IMREAD_GRAYSCALE);
+        std::cout<<"image "<<path<<std::endl;
+
         if (image.empty()) { std::cerr << "  [warn] cannot read: " << path << "\n"; continue; }
         if (imageSize.width == 0) imageSize = image.size();
 
@@ -82,6 +84,8 @@ int main(int argc, char** argv) {
             cv::Mat vis;
             cv::cvtColor(image, vis, cv::COLOR_GRAY2BGR);
             cv::aruco2::drawDetectedBoard(vis, board, cv::Scalar(0, 255, 0), true);
+            //resize to 1280x720
+            cv::resize(vis,vis,cv::Size(1280,720));
             cv::imshow("calibration", vis);
             cv::waitKey(200);
         }
