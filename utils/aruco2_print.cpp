@@ -20,7 +20,7 @@ int main(int argc,char **argv) {
             cv::aruco2::generateDiamondImage(outImage,cv::aruco2::DICT_ARUCO_MIP_36h12,id);
         }
         else if(type=="f"){
-            cv::aruco2::generateFractalImage(outImage,cv::aruco2::FRACTAL_3L_6);
+            cv::aruco2::generateFractalImage(outImage,cv::aruco2::FRACTAL_4L_6);
         }
         else if(type=="b"){
             cv::aruco2::generateBoardImage(outImage,cv::Size(9,5), cv::aruco2::DICT_ARUCO_MIP_36h12);
