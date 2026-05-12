@@ -109,6 +109,7 @@ struct FractalMarker {
 | `drawDetectedBoard(image, board)` | draw detected board corners |
 | `drawDetectedDiamonds(image, diamonds)` | draw diamond outlines and ids |
 | `drawDetectedFractals(image, fractals)` | draw fractal marker outlines, ids, and all matched image points (circles) |
+| `drawAxis(image, cameraMatrix, distCoeffs, rvec, tvec, length)` | draw XYZ coordinate axes from a solvePnP result (X red, Y green, Z blue) |
 | `getSolvePnpPoints(marker, imgPts, objPts)` | extract solvePnP inputs for a marker |
 | `getSolvePnpPoints(board, imgPts, objPts)` | extract solvePnP inputs for a board |
 | `getSolvePnpPoints(diamond, imgPts, objPts)` | extract solvePnP inputs for a diamond |
@@ -208,8 +209,36 @@ for (const auto &m : cv::aruco2::detectMarkers(image)) {
     cv::Mat imgPts, objPts, rvec, tvec;
     cv::aruco2::getSolvePnpPoints(m, imgPts, objPts, 0.05f); // 5 cm marker
     cv::solvePnP(objPts, imgPts, cameraMatrix, distCoeffs, rvec, tvec);
+
+    // Draw XYZ axes at the marker origin (X red, Y green, Z blue toward camera)
+    cv::aruco2::drawAxis(image, cameraMatrix, distCoeffs, rvec, tvec, 0.025f);
 }
 ```
+
+---
+
+### Drawing coordinate axes
+
+`drawAxis` visualises the pose returned by `solvePnP` as three coloured segments drawn from
+the marker's origin: **X red**, **Y green**, **Z blue** (toward the camera).
+
+```cpp
+cv::Mat rvec, tvec; // from solvePnP
+cv::aruco2::drawAxis(image, cameraMatrix, distCoeffs, rvec, tvec,
+                     0.025f); // axis length in the same unit as tvec (here 2.5 cm)
+```
+
+The function works identically for markers, boards, diamonds and fractal markers — pass the
+`rvec` / `tvec` pair from any `solvePnP` call.
+
+Coordinate conventions (all target types share the same handedness):
+
+| Target | Origin | X | Y | Z |
+|---|---|---|---|---|
+| Marker | marker centre | → right | ↑ up | out of plane toward camera |
+| Board | top-left corner | → right | ↑ up | out of plane toward camera |
+| Diamond | diamond centre | → right | ↑ up | out of plane toward camera |
+| Fractal | marker centre | → right | ↑ up | out of plane toward camera |
 
 ---
 
@@ -418,6 +447,7 @@ cmake --build build
 | Pose estimation — single marker | done |
 | Pose estimation — board | done |
 | Pose estimation — diamond | done |
+| Draw coordinate axes (`drawAxis`) | done |
 | Generate fractal marker images | done |
 | Fractal marker detection | done |
 | Draw detected fractal markers | done |
