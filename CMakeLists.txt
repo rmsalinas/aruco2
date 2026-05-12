@@ -23,7 +23,9 @@ endif()
 find_package(OpenCV REQUIRED)
 #include opencv dir
 include_directories(${OpenCV_INCLUDE_DIRS})
-SET(SRCARUCO2 aruco2.hpp aruco2.cpp aruco_dictionary.hpp aruco_dictionary.cpp aruco2_fractal.cpp)
+include_directories(src)
+include_directories(opencv2/objdetect)
+SET(SRCARUCO2  src/aruco2.cpp src/aruco_dictionary.hpp src/aruco_dictionary.cpp src/aruco2_fractal.cpp)
 
 # ---------------------------------------------------------------------------
 # 5. Compiler warnings — pedantic, treat warnings as errors
@@ -37,11 +39,16 @@ SET(SRCARUCO2 aruco2.hpp aruco2.cpp aruco_dictionary.hpp aruco_dictionary.cpp ar
 # 5. Add Executable
 add_executable(tests tests.cpp ${SRCARUCO2})
 target_link_libraries(tests PRIVATE ${OpenCV_LIBS})
+include_directories(.)
 
-add_executable(camera_calibration camera_calibration.cpp ${SRCARUCO2})
-target_link_libraries(camera_calibration PRIVATE ${OpenCV_LIBS})
+add_executable(aruco2_camera_calibration utils/aruco2_camera_calibration.cpp ${SRCARUCO2})
+target_link_libraries(aruco2_camera_calibration PRIVATE ${OpenCV_LIBS})
 
+add_executable(aruco2_print utils/aruco2_print.cpp ${SRCARUCO2})
+target_link_libraries(aruco2_print PRIVATE ${OpenCV_LIBS})
 
+add_executable(aruco2_detect_markers utils/aruco2_detect_markers.cpp ${SRCARUCO2})
+target_link_libraries(aruco2_detect_markers PRIVATE ${OpenCV_LIBS})
 
 # ---------------------------------------------------------------------------
 # 8. Status Printout
