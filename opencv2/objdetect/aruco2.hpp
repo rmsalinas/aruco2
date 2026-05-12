@@ -214,6 +214,22 @@ CV_WRAP void drawDetectedMarkers(InputOutputArray image, const std::vector<Marke
                                  Scalar borderColor = Scalar(0, 255, 0));
 
 
+/** @brief Draw the XYZ coordinate frame of a pose estimate onto an image.
+ *
+ * Projects four points (origin + axis tips) with cv::projectPoints and draws three coloured
+ * segments from the marker origin: X red, Y green, Z blue.
+ *
+ * @param image         input/output BGR image; modified in place
+ * @param cameraMatrix  3×3 camera intrinsic matrix (from calibrateCamera)
+ * @param distCoeffs    distortion coefficients (from calibrateCamera)
+ * @param rvec          rotation vector (from solvePnP)
+ * @param tvec          translation vector (from solvePnP)
+ * @param length        axis length in the same unit as @p tvec (e.g. metres)
+ */
+CV_WRAP void drawAxis(InputOutputArray image, InputArray cameraMatrix, InputArray distCoeffs,
+                      InputArray rvec, InputArray tvec, float length);
+
+
 /** @brief Compute image and object points for a single marker to pass to solvePnP().
  *
  * @param marker     a detected marker

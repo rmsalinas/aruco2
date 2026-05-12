@@ -790,6 +790,19 @@ void drawDetectedMarkers(InputOutputArray _image, const std::vector<Marker> &mar
 }
 
 
+void drawAxis(InputOutputArray image, InputArray cameraMatrix, InputArray distCoeffs,
+              InputArray rvec, InputArray tvec, float length) {
+    std::vector<cv::Point3f> axisPoints = {
+        {0.f, 0.f, 0.f}, {length, 0.f, 0.f}, {0.f, length, 0.f}, {0.f, 0.f, length}
+    };
+    std::vector<cv::Point2f> projected;
+    cv::projectPoints(axisPoints, rvec, tvec, cameraMatrix, distCoeffs, projected);
+    cv::Mat img = image.getMat();
+    cv::line(img, projected[0], projected[1], Scalar(0,   0, 255), 2); // X red
+    cv::line(img, projected[0], projected[2], Scalar(0, 255,   0), 2); // Y green
+    cv::line(img, projected[0], projected[3], Scalar(255, 0,   0), 2); // Z blue
+}
+
 void getSolvePnpPoints(const Marker &marker, OutputArray imgPoints, OutputArray objPoints, float markerSize  ){
     std::vector<cv::Point3f> markerCorners={ {-markerSize/2.f,markerSize/2.f,0.f},{markerSize/2.f,markerSize/2.f,0.f},{markerSize/2.f,-markerSize/2.f,0.f},{-markerSize/2.f,-markerSize/2.f,0.f}};
 
@@ -862,9 +875,6 @@ bool detectBoard(InputArray image, cv::Size gridSize, DictionaryType dict,
                     int gid1=getGlobalCornerID(marker.id,c,gridSize,ids);
                     int gid2=getGlobalCornerID(comp[idx/4].id,idx%4,gridSize,ids);
                     if(gid1!=gid2){
-                        for(size_t ixx=0;ixx<indices.size();ixx++){
-                            std::cout<<indices[ixx]<<" "<< dists[ixx]<<std::endl;
-                        }
                         CV_LOG_WARNING(NULL, "Marker " << marker.id << " corner " << c << " connected to marker " << comp[idx/4].id << " corner " << (idx%4) << " but global corner ids differ: " << gid1 << " vs " << gid2);
                         is_consistent=false;
                     }

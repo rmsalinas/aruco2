@@ -121,5 +121,9 @@ int main(int argc, char** argv) {
     fs_out.release();
 
     std::cout << "Calibration saved to: " << outFile << "\n";
+    std::cout << "\nTo detect markers using this calibration:\n"
+              << "  aruco2_detect_markers <image_folder>"
+              << " -calib=" << outFile
+              << " -ms=?"   <<std::endl;
     return 0;
 }
