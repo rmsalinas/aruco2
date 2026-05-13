@@ -36,11 +36,13 @@ SET(SRCARUCO2  src/aruco2.cpp src/aruco_dictionary.hpp src/aruco_dictionary.cpp 
 #     add_compile_options(/W4 /WX)
 # endif()
 
-# 5. Add Executable
-add_executable(tests tests.cpp ${SRCARUCO2})
-target_link_libraries(tests PRIVATE ${OpenCV_LIBS})
 include_directories(.)
-
+# 5. Add Executable
+OPTION(BUILD_DEV OFF)
+IF(BUILD_DEV)
+add_executable(devtest1 dev/devtest1.cpp ${SRCARUCO2})
+target_link_libraries(devtest1 PRIVATE ${OpenCV_LIBS})
+ENDIF()
 add_executable(aruco2_camera_calibration utils/aruco2_camera_calibration.cpp ${SRCARUCO2})
 target_link_libraries(aruco2_camera_calibration PRIVATE ${OpenCV_LIBS})
 
