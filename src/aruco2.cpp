@@ -863,11 +863,6 @@ bool detectBoard(InputArray image, cv::Size gridSize, DictionaryType dict,
                 cv::Mat query = (cv::Mat_<float>(1, 2) << marker[c].x, marker[c].y); // Single 2D query point
                 int nn=findex->radiusSearch(query, indices, dists, threshold*threshold, marker.size());
                 nn=std::min(nn,int(indices.size()));//flann bug in <4.13
-                if(nn>marker.size()  ){
-
-                    nn=findex->radiusSearch(query, indices, dists, threshold*threshold, marker.size());
-
-                }
                 for(int ix=0;ix<nn;ix++){
                     int idx=indices[ix];
                     if(comp[idx/4].id==marker.id) continue;//same marker
