@@ -5,6 +5,7 @@
 A proposed replacement for the ArUco module in OpenCV 5, by the original ArUco author.
 
 - **6.5× faster** detection engine based on [ArUco Nano](https://github.com/rmsalinas/aruco_nano)
+- **Up to 2.7× faster** dictionary identification via O(1) hash-map lookup
 - **Simpler API** — one function call, results in a single `vector<Marker>` (no parallel vectors)
 - **Single public header** — `#include "aruco2.hpp"` is all you need; no extra headers to hunt down
 - **Safer defaults** — `errorCorrectionRate=0` instead of the legacy 0.6 that causes false positives
@@ -386,6 +387,16 @@ Key advantages over the standard OpenCV ArUco detector:
 - **SIMD-accelerated** via OpenCV universal intrinsics
 - **Multi-attempt corner perturbation** — slightly jitters corners on retry attempts to
   improve robustness under perspective distortion
+- **O(1) Dictionary Lookup** — exact matches in `Dictionary::identify` use a pre-computed hash map, making identification time independent of dictionary size.
+
+| Dictionary | Mode | Official OpenCV | aruco2 (Optimized) | Speedup |
+|---|---|---|---|---|
+| **DICT_6X6_250** | Exact | 0.65 µs | 0.27 µs | **2.4×** |
+| | Correction | 0.63 µs | 0.25 µs | **2.5×** |
+| **DICT_APRILTAG_36h10** | Exact | 0.64 µs | 0.25 µs | **2.6×** |
+| | Correction | 0.64 µs | 0.24 µs | **2.7×** |
+
+*(Benchmarked on Intel Core i7-13700H, average identification time per marker candidate)*
 
 ---
 

@@ -5,7 +5,7 @@
 
 #include <opencv2/core.hpp>
 #include "aruco2.hpp"
-#include <map>
+#include <unordered_map>
 namespace cv :: aruco2{
 
 //! @addtogroup objdetect_aruco
@@ -13,26 +13,25 @@ namespace cv :: aruco2{
 
 
 /** @brief Dictionary is a set of unique ArUco markers of the same size
- *
- * `bytesList` storing as 2-dimensions Mat with 4-th channels (CV_8UC4 type was used) and contains the marker codewords where:
- * - bytesList.rows is the dictionary size
- * - each marker is encoded using `nbytes = ceil(markerSize*markerSize/8.)` bytes
- * - each row contains all 4 rotations of the marker, so its length is `4*nbytes`
- * - the byte order in the bytesList[i] row:
- * `//bytes without rotation/bytes with rotation 1/bytes with rotation 2/bytes with rotation 3//`
- * So `bytesList.ptr(i)[k*nbytes + j]` is the j-th byte of i-th marker, in its k-th rotation.
- * @note Python bindings generate matrix with shape of bytesList `dictionary_size x nbytes x 4`,
- * but it should be indexed like C++ version. Python example for j-th byte of i-th marker, in its k-th rotation:
- * `aruco_dict.bytesList[id].ravel()[k*nbytes + j]`
- */
+  *
+  * `bytesList` storing as 2-dimensions Mat with 4-th channels (CV_8UC4 type was used) and contains the marker codewords where:
+  * - bytesList.rows is the dictionary size
+  * - each marker is encoded using `nbytes = ceil(markerSize*markerSize/8.)` bytes
+  * - each row contains all 4 rotations of the marker, so its length is `4*nbytes`
+  * - the byte order in the bytesList[i] row:
+  * `//bytes without rotation/bytes with rotation 1/bytes with rotation 2/bytes with rotation 3//`
+  * So `bytesList.ptr(i)[k*nbytes + j]` is the j-th byte of i-th marker, in its k-th rotation.
+  * @note Python bindings generate matrix with shape of bytesList `dictionary_size x nbytes x 4`,
+  * but it should be indexed like C++ version. Python example for j-th byte of i-th marker, in its k-th rotation:
+  * `aruco_dict.bytesList[id].ravel()[k*nbytes + j]`
+  */
 class CV_EXPORTS_W_SIMPLE Dictionary {
 
     public:
     CV_PROP_RW Mat bytesList;         ///< marker code information. See class description for more details
     CV_PROP_RW int markerSize;        ///< number of bits per dimension
     CV_PROP_RW int maxCorrectionBits; ///< maximum number of bits that can be corrected
-    CV_PROP_RW std::map<uint64_t, std::pair<int, int>> bits_id; ///< a map with all marker bytes and its associated (id, rotation)
-
+    CV_PROP_RW std::unordered_map<uint64_t, std::pair<int, int>> bits_id; ///< a map with all marker bytes and its associated (id, rotation)
     CV_WRAP Dictionary();
 
     /** @brief Basic ArUco dictionary constructor
