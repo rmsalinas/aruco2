@@ -30,6 +30,9 @@ private:
     static std::vector<std::vector<cv::Point>> visitedAwareTracingContour(cv::Mat &padded_io, size_t minSize = 1,float maxRevisited=0.1) ;
     static int getBorderErrors(const cv::Mat &bits, int markerSize, int borderSize) ;
     static void thres255Adaptive(cv::Mat &in,cv::Mat &out,int off=2,int thres=5);
+
+
+    static bool isAInnerMarker(const cv::Mat &grey,const Marker &marker);
 };
 
 namespace _private {
@@ -413,6 +416,62 @@ std::vector<std::vector<cv::Point>> MarkerDetector::visitedAwareTracingContour(c
     return contours;
 }
 
+//given a maker and the image it is detected, analyzes whether it is an inner marker, ie, is the
+//result of the inner region obtained by thresholding.
+
+bool MarkerDetector::isAInnerMarker(const cv::Mat &grey,const Marker &marker)
+{
+    // --- tunable parameters ---
+    const int   nSamplesPerEdge = 5;     // pairs along each edge
+    const float perpOffset      = 2.0f;  // pixels perpendicular to the edge
+    const float colorThreshold  = 30.0f; // mean |L-R| below this => inner marker
+    // --------------------------
+
+    // NOTE: replace `grey` with whatever member of MarkerDetector
+    // holds the grayscale input image (e.g. _grey, grayImage, ...).
+    const cv::Mat &img = grey;
+    if (img.empty() || img.type() != CV_8UC1) return false;
+
+
+    float totalDiff   = 0.f;
+    int   validPairs  = 0;
+
+    for (int i = 0; i < 4; ++i) {
+        const cv::Point2f &p1 = marker[i];
+        const cv::Point2f &p2 = marker[(i + 1) % 4];
+
+        cv::Point2f edge = p2 - p1;
+        float edgeLen = cv::norm(edge);
+        if (edgeLen < 1e-6f) continue;
+
+        cv::Point2f edgeDir = edge / edgeLen;
+        // perpendicular (rotate 90°): one side will be "outside",
+        // the other "inside" the polygon — we don't actually need
+        // to know which is which, only the magnitude of the difference.
+        cv::Point2f perp(-edgeDir.y, edgeDir.x);
+
+        for (int j = 1; j <= nSamplesPerEdge; ++j) {
+            // t in (0,1) — skip exact corners to avoid noise there
+            float t = float(j) / float(nSamplesPerEdge + 1);
+            cv::Point2f midPt = p1 + t * edge;
+
+            cv::Point2f leftPt  = midPt + perp * perpOffset;
+            cv::Point2f rightPt = midPt - perp * perpOffset;
+
+            float cL = getSubpixelValue(grey,leftPt);
+            float cR = getSubpixelValue(grey,rightPt);
+            if (cL < 0.f || cR < 0.f) continue; // out of image
+
+            totalDiff += std::fabs(cL - cR);
+            ++validPairs;
+        }
+    }
+
+    if (validPairs == 0) return false;
+
+    float avgDiff = totalDiff / validPairs;
+    return avgDiff < colorThreshold; // low contrast across the line => inner marker
+}
 void MarkerDetector::thres255Adaptive(cv::Mat &in,cv::Mat &out,int off,int thres){
     cv::boxFilter( in, out, in.type(), cv::Size(off*2+1, off*2+1),
                   cv::Point(-1,-1), true, 4 );
@@ -560,13 +619,8 @@ std::vector<Marker> detectBWMarkers(cv::Mat &src_gray,DictionaryType dict){
     allMarkers.insert(allMarkers.end(), markers_black.begin(), markers_black.end());
     allMarkers.insert(allMarkers.end(), markers_white.begin(), markers_white.end());
 
-
-
-
-
     return allMarkers;
 }
-
 std::vector<std::vector<int>> getConnectedComponents(cv::Mat graph_8uc1) {
     int n = graph_8uc1.rows;
     std::vector<bool> visited(n, false);
@@ -774,7 +828,7 @@ void generateMarkerImage(OutputArray _img,const DictionaryType &dictionary, int 
      cv::resize(markerWithBorders, _img, cv::Size(sidePixels, sidePixels), 0, 0, cv::INTER_NEAREST);
  }
 
-void drawDetectedMarkers(InputOutputArray _image, const std::vector<Marker> &markers, Scalar borderColor) {
+void drawDetected(InputOutputArray _image, const std::vector<Marker> &markers, Scalar borderColor) {
     cv::Mat image = _image.getMat();
     Scalar cornerColor(255 - borderColor[0], borderColor[1], borderColor[2]);
     Scalar textColor  (255 - borderColor[0], 255 - borderColor[1], 255 - borderColor[2]);
@@ -1043,7 +1097,7 @@ void generateBoardImage(OutputArray img, Size bSize, DictionaryType dict,
     outImage.copyTo(img);
 
 }
-  void drawDetectedBoard(InputOutputArray image, const Board &board,
+  void drawDetected(InputOutputArray image, const Board &board,
                        Scalar color,bool drawMarkerIds ){
       for(size_t i=0;i<board.detectedBoardCorners.size();i++){
           //draw a circle for each detected corner
@@ -1198,7 +1252,7 @@ void generateBoardImage(OutputArray img, Size bSize, DictionaryType dict,
    }
 
 
-   void drawDetectedDiamonds(InputOutputArray image, const std::vector<Diamond> &diamonds, Scalar color ,bool drawMarkerIds){
+   void drawDetected(InputOutputArray image, const std::vector<Diamond> &diamonds, Scalar color ,bool drawMarkerIds){
        for(const auto &d:diamonds){
 
            //draw lines between corners

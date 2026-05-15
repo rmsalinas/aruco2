@@ -1163,7 +1163,7 @@ std::vector<FractalMarker> detectFractals(InputArray _img, FractalType ftype) {
     return {m};
 }
 
-void drawDetectedFractals(InputOutputArray _image, const std::vector<FractalMarker> &fractals,
+void drawDetected(InputOutputArray _image, const std::vector<FractalMarker> &fractals,
                           Scalar color, bool drawAllImagePoints) {
     cv::Mat image = _image.getMat();
 

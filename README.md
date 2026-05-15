@@ -105,10 +105,10 @@ struct FractalMarker {
 | `detectBoard(image, size, dict, board)` → `bool` | find a grid board |
 | `detectDiamonds(image, dict)` → `vector<Diamond>` | find diamond markers |
 | `detectFractals(image, ftype)` → `vector<FractalMarker>` | find fractal markers |
-| `drawDetectedMarkers(image, markers)` | draw marker outlines and ids |
-| `drawDetectedBoard(image, board)` | draw detected board corners |
-| `drawDetectedDiamonds(image, diamonds)` | draw diamond outlines and ids |
-| `drawDetectedFractals(image, fractals)` | draw fractal marker outlines, ids, and all matched image points (circles) |
+| `drawDetected(image, markers)` | draw marker outlines and ids |
+| `drawDetected(image, board)` | draw detected board corners |
+| `drawDetected(image, diamonds)` | draw diamond outlines and ids |
+| `drawDetected(image, fractals)` | draw fractal marker outlines, ids, and all matched image points (circles) |
 | `drawAxis(image, cameraMatrix, distCoeffs, rvec, tvec, length)` | draw XYZ coordinate axes from a solvePnP result (X red, Y green, Z blue) |
 | `getSolvePnpPoints(marker, objPts, imgPts)` | extract solvePnP inputs for a marker |
 | `getSolvePnpPoints(board, objPts, imgPts)` | extract solvePnP inputs for a board |
@@ -163,8 +163,8 @@ Each candidate is matched against all dictionaries in a single pass and carries 
 
 ```cpp
 auto markers = cv::aruco2::detectMarkers(image);
-cv::aruco2::drawDetectedMarkers(image, markers);                          // green border
-cv::aruco2::drawDetectedMarkers(image, markers, cv::Scalar(255, 0, 0));   // blue border
+cv::aruco2::drawDetected(image, markers);                          // green border
+cv::aruco2::drawDetected(image, markers, cv::Scalar(255, 0, 0));   // blue border
 cv::imshow("markers", image);
 ```
 
@@ -260,7 +260,7 @@ if (found) {
     std::cout << "Detected " << board.markers.size() << " of 12 markers\n";
 
     // Draw detected corners
-    cv::aruco2::drawDetectedBoard(image, board);
+    cv::aruco2::drawDetected(image, board);
 
     // Pose estimation — uses all detected board corners, robust to partial occlusion
     cv::Mat imgPts, objPts, rvec, tvec;
@@ -285,7 +285,7 @@ A diamond is a 2×2 block of markers.  Its identity is the combination of the fo
 auto diamonds = cv::aruco2::detectDiamonds(image, cv::aruco2::DICT_6X6_250);
 
 // Draw detected diamonds
-cv::aruco2::drawDetectedDiamonds(image, diamonds);
+cv::aruco2::drawDetected(image, diamonds);
 
 for (const auto &d : diamonds) {
     std::cout << "Diamond ids: "
@@ -332,10 +332,10 @@ cv::imwrite("fractal.png", fractalImg);
 auto fractals = cv::aruco2::detectFractals(image, cv::aruco2::FRACTAL_3L_6);
 
 // Draw results — outline, id, and all matched image points (default)
-cv::aruco2::drawDetectedFractals(image, fractals);
+cv::aruco2::drawDetected(image, fractals);
 
 // Outline and id only, no image points
-// cv::aruco2::drawDetectedFractals(image, fractals, cv::Scalar(0,255,0), false);
+// cv::aruco2::drawDetected(image, fractals, cv::Scalar(0,255,0), false);
 
 for (const auto &f : fractals)
     std::cout << "id=" << f.id << " corner0=" << f.corners[0] << "\n";

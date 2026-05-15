@@ -99,7 +99,7 @@ int main(int argc, char** argv) {
         if (image.empty()) { std::cerr << "  [warn] cannot read: " << path << "\n"; continue; }
 
         auto fractals = cv::aruco2::detectFractals(image, ftype);
-        cv::aruco2::drawDetectedFractals(image, fractals);
+        cv::aruco2::drawDetected(image, fractals);
 
         std::cout << fs::path(path).filename().string()
                   << " : " << fractals.size() << " fractal(s) detected";

@@ -94,7 +94,7 @@ int main(int argc, char** argv) {
         if (image.empty()) { std::cerr << "  [warn] cannot read: " << path << "\n"; continue; }
 
         auto markers = cv::aruco2::detectMarkers(image, dict);
-        cv::aruco2::drawDetectedMarkers(image, markers);
+        cv::aruco2::drawDetected(image, markers);
 
         std::cout << fs::path(path).filename().string()
                   << " : " << markers.size() << " marker(s) detected";

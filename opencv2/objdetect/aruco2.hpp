@@ -137,7 +137,7 @@ struct CV_EXPORTS_W_SIMPLE DetectorParameters {
  *   corners[3] ---- corners[2]
  * @endcode
  *
- * @sa detectMarkers, drawDetectedMarkers, getSolvePnpPoints
+ * @sa detectMarkers, drawDetected, getSolvePnpPoints
  */
 struct CV_EXPORTS_W_SIMPLE Marker {
     CV_PROP_RW std::vector<cv::Point2f> corners; ///< four corner points in clockwise order
@@ -210,7 +210,7 @@ CV_WRAP std::vector<Marker> detectMarkers(InputArray image, const std::vector<Di
  *
  * Useful for visualisation and debugging.
  */
-CV_WRAP void drawDetectedMarkers(InputOutputArray image, const std::vector<Marker> &markers,
+CV_WRAP void drawDetected(InputOutputArray image, const std::vector<Marker> &markers,
                                  Scalar borderColor = Scalar(0, 255, 0));
 
 
@@ -270,7 +270,7 @@ private:
     std::vector<std::pair<int,cv::Point2f>> detectedBoardCorners;
     friend bool detectBoard(InputArray, cv::Size, DictionaryType, Board &,  std::vector<int>);
     friend void getSolvePnpPoints(const Board&, OutputArray, OutputArray, float);
-    friend void drawDetectedBoard(InputOutputArray, const Board &, Scalar, bool);
+    friend void drawDetected(InputOutputArray, const Board &, Scalar, bool);
 };
 
 /** @brief Generate a grid board image ready for printing.
@@ -317,7 +317,7 @@ CV_WRAP bool detectBoard(InputArray image, cv::Size gridSize, DictionaryType dic
  * For each detected board corner a filled circle is drawn together with its global corner id.
  * Useful for verifying that the board detection and corner assignment are correct.
  */
-CV_WRAP void drawDetectedBoard(InputOutputArray image, const Board &board,
+CV_WRAP void drawDetected(InputOutputArray image, const Board &board,
                                Scalar color = Scalar(0, 255, 0),bool drawMarkerIds=false);
 
 
@@ -354,7 +354,7 @@ private:
     std::vector<cv::Point2f> corners;
     friend std::vector<Diamond> detectDiamonds(InputArray, DictionaryType);
     friend void getSolvePnpPoints(const Diamond&, OutputArray, OutputArray, float);
-    friend void drawDetectedDiamonds(InputOutputArray, const std::vector<Diamond> &, Scalar, bool);
+    friend void drawDetected(InputOutputArray, const std::vector<Diamond> &, Scalar, bool);
 };
 
 /** @brief Generate a ChArUco2-style diamond image ready for printing.
@@ -404,7 +404,7 @@ CV_WRAP std::vector<Diamond> detectDiamonds(InputArray image, DictionaryType dic
  * - a small filled square at each of the 9 grid corners
  * - the Vec4i diamond id as text at the diamond centroid
  */
-CV_WRAP void drawDetectedDiamonds(InputOutputArray image, const std::vector<Diamond> &diamonds,
+CV_WRAP void drawDetected(InputOutputArray image, const std::vector<Diamond> &diamonds,
                                Scalar color = Scalar(0, 255, 0),bool drawMarkerIds=false);
 
 
@@ -465,7 +465,7 @@ private:
     std::vector<cv::Point3f> objPoints; ///< matching 3-D model points in normalised space
     friend std::vector<FractalMarker> detectFractals(InputArray, FractalType);
     friend void getSolvePnpPoints(const FractalMarker &, OutputArray, OutputArray, float);
-    friend void drawDetectedFractals(InputOutputArray, const std::vector<FractalMarker> &, Scalar, bool);
+    friend void drawDetected(InputOutputArray, const std::vector<FractalMarker> &, Scalar, bool);
 };
 
 /** @brief Render a fractal marker to a grayscale image.
@@ -503,7 +503,7 @@ CV_WRAP std::vector<FractalMarker> detectFractals(InputArray image, FractalType 
  * @param drawAllImagePoints  if true, draw a small circle at every matched image point
  *                         stored inside each FractalMarker (default true)
  */
-CV_WRAP void drawDetectedFractals(InputOutputArray image, const std::vector<FractalMarker> &fractals,
+CV_WRAP void drawDetected(InputOutputArray image, const std::vector<FractalMarker> &fractals,
                                   Scalar color = Scalar(0, 255, 0), bool drawAllImagePoints = true);
 
 /** @brief Extract solvePnP inputs for a detected fractal marker.

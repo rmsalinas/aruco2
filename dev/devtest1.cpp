@@ -33,7 +33,7 @@ int main(int argc, char** argv) {
         cv::cvtColor(outImage,outImage,cv::COLOR_GRAY2BGR);
         //draw
         for(auto m:markers)
-            cv::aruco2::drawDetectedMarkers(outImage,{m});
+            cv::aruco2::drawDetected(outImage,{m});
         //show image
         cv::imshow("AprilTag", outImage);
         //wait for key press

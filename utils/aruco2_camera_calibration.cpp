@@ -83,7 +83,7 @@ int main(int argc, char** argv) {
         if (showImages) {
             cv::Mat vis;
             cv::cvtColor(image, vis, cv::COLOR_GRAY2BGR);
-            cv::aruco2::drawDetectedBoard(vis, board, cv::Scalar(0, 255, 0), true);
+            cv::aruco2::drawDetected(vis, board, cv::Scalar(0, 255, 0), true);
             //resize to 1280x720
             cv::resize(vis,vis,cv::Size(1280,720));
             cv::imshow("calibration", vis);
