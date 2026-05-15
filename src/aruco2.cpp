@@ -3,12 +3,16 @@
 #include <opencv2/imgproc.hpp>
 #include <opencv2/calib3d.hpp>
 #include <opencv2/core/hal/intrin.hpp>
+
 #include <vector>
 #include <queue>
 #include <map>
 
 #include <opencv2/highgui.hpp>
-
+#ifndef CV_LOG_WARNING
+#include <iostream>
+#define CV_LOG_WARNING(X,Str)  std::cerr<<Str<<std::endl;
+#endif
 namespace   {
 using namespace cv;
 using namespace cv :: aruco2;

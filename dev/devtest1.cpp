@@ -12,7 +12,7 @@ namespace fs = std::filesystem;
 int main(int argc, char** argv) {
 
     //generate an april tag image
-    for(int dict=0;dict<=cv::aruco2::DictionaryType::DICT_ARUCO_MIP_36h12;dict++){
+    for(int dict=0;dict<=cv::aruco2::DictionaryType::DICT_APRILTAG_36h11;dict++){
         std::cout<<"dict="<<dict<<std::endl;
         cv::Mat outImage;
         cv::aruco2::DictionaryType dictType = static_cast<cv::aruco2::DictionaryType>(dict);
