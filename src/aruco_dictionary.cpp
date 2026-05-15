@@ -67,6 +67,9 @@ Dictionary::Dictionary(const Mat &_bytesList, int _markerSize, int _maxcorr) {
         }
     }
 }
+size_t Dictionary::size()const{
+    return bits_id.size();
+}
 
 
 bool Dictionary::readDictionary(const cv::FileNode& fn) {

@@ -32,6 +32,8 @@ class CV_EXPORTS_W_SIMPLE Dictionary {
     CV_PROP_RW int markerSize;        ///< number of bits per dimension
     CV_PROP_RW int maxCorrectionBits; ///< maximum number of bits that can be corrected
     CV_PROP_RW std::unordered_map<uint64_t, std::pair<int, int>> bits_id; ///< a map with all marker bytes and its associated (id, rotation)
+
+
     CV_WRAP Dictionary();
 
     /** @brief Basic ArUco dictionary constructor
@@ -42,6 +44,10 @@ class CV_EXPORTS_W_SIMPLE Dictionary {
      */
     CV_WRAP Dictionary(const Mat &bytesList, int _markerSize, int maxcorr = 0);
 
+    /**
+     * Returns the number of markers in this dictionary
+     */
+    CV_WRAP size_t size()const;
     /** @brief Read a new dictionary from FileNode.
      *
      * Dictionary example in YAML format:\n

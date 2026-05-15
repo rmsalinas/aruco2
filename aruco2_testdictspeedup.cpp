@@ -121,14 +121,14 @@ int main() {
         cout << left << setw(20) << r.dictName 
              << setw(12) << "Exact"
              << setw(15) << fixed << setprecision(2) << r.aruco2Exact 
-             << setw(15) << r.officialExact 
-             << setw(10) << (to_string(int(r.officialExact / r.aruco2Exact)) + "x") << endl;
+             << setw(15) << r.officialExact
+             << setw(10) << (to_string(float(r.officialExact / r.aruco2Exact)) + "x") << endl;
         
         cout << left << setw(20) << "" 
              << setw(12) << "Correction"
              << setw(15) << r.aruco2Corr 
              << setw(15) << r.officialCorr 
-             << setw(10) << (to_string(int(r.officialCorr / r.aruco2Corr)) + "x") << endl;
+             << setw(10) << (to_string(float(r.officialCorr / r.aruco2Corr)) + "x") << endl;
         cout << string(75, '-') << endl;
     }
     cout << "======================================================================" << endl;
