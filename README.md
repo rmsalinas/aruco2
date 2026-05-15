@@ -8,7 +8,7 @@ A proposed replacement for the ArUco module in OpenCV 5, by the original ArUco a
 - **Up to 2.7× faster** dictionary identification via O(1) hash-map lookup
 - **Simpler API** — one function call, results in a single `vector<Marker>` (no parallel vectors)
 - **Single public header** — `#include "aruco2.hpp"` is all you need; no extra headers to hunt down
-- **Safer defaults** — `errorCorrectionRate=0` instead of the legacy 0.6 that causes false positives
+- **Safer defaults** — `errorCorrectionRate=0` instead of the legacy 0.6 that may causes false positives
 - **Multi-dictionary** detection in one pass
 - **Boards and diamonds** based on [ChArUco2](https://github.com/rmsalinas/charuco2) — double the marker density, twice the corners at 75% occlusion
 - **Fractal markers** — nested multi-scale design gives many more corners for pose estimation, robust to heavy occlusion
@@ -24,7 +24,6 @@ Detecting markers with the current OpenCV ArUco API looks like this:
 // Current OpenCV aruco — a lot of boilerplate for a simple task
 cv::aruco::Dictionary dict = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_ARUCO_MIP_36h12);
 cv::aruco::DetectorParameters params;
-params.errorCorrectionRate = 0.6; // dangerously high default — causes false positives
 cv::aruco::ArucoDetector detector(dict, params);
 
 std::vector<std::vector<cv::Point2f>> corners;
@@ -55,7 +54,7 @@ for (auto &marker : cv::aruco2::detectMarkers(image))
 | Public API surface | multiple headers | single `aruco2.hpp` |
 | Result type | two parallel vectors (`corners`, `ids`) | `vector<Marker>` — id and corners travel together |
 | Multi-dictionary | not supported in one call | `detectMarkers(image, {DICT_A, DICT_B})` |
-| Default error correction | 0.6 (causes false positives) | 0 (strict — raise only when needed) |
+| Default error correction | 0.6 (may cause false positives) | 0 (strict — raise only when needed) |
 | Board design | markers on half the squares | ChArUco2: markers on every square |
 | Diamond | separate concept using corner lists | first-class `Diamond` type with `vector<Marker>` |
 | Fractal markers | not supported | first-class `FractalMarker` type — nested design, many more pose corners |
