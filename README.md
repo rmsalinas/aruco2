@@ -110,10 +110,10 @@ struct FractalMarker {
 | `drawDetectedDiamonds(image, diamonds)` | draw diamond outlines and ids |
 | `drawDetectedFractals(image, fractals)` | draw fractal marker outlines, ids, and all matched image points (circles) |
 | `drawAxis(image, cameraMatrix, distCoeffs, rvec, tvec, length)` | draw XYZ coordinate axes from a solvePnP result (X red, Y green, Z blue) |
-| `getSolvePnpPoints(marker, imgPts, objPts)` | extract solvePnP inputs for a marker |
-| `getSolvePnpPoints(board, imgPts, objPts)` | extract solvePnP inputs for a board |
-| `getSolvePnpPoints(diamond, imgPts, objPts)` | extract solvePnP inputs for a diamond |
-| `getSolvePnpPoints(fractal, imgPts, objPts)` | extract solvePnP inputs for a fractal marker |
+| `getSolvePnpPoints(marker, objPts, imgPts)` | extract solvePnP inputs for a marker |
+| `getSolvePnpPoints(board, objPts, imgPts)` | extract solvePnP inputs for a board |
+| `getSolvePnpPoints(diamond, objPts, imgPts)` | extract solvePnP inputs for a diamond |
+| `getSolvePnpPoints(fractal, objPts, imgPts)` | extract solvePnP inputs for a fractal marker |
 
 Generate → Detect → Draw → Pose: four verbs, four target types, one consistent pattern.
 
@@ -207,7 +207,7 @@ cv::Mat cameraMatrix, distCoeffs; // from calibration
 
 for (const auto &m : cv::aruco2::detectMarkers(image)) {
     cv::Mat imgPts, objPts, rvec, tvec;
-    cv::aruco2::getSolvePnpPoints(m, imgPts, objPts, 0.05f); // 5 cm marker
+    cv::aruco2::getSolvePnpPoints(m, objPts, imgPts, 0.05f); // 5 cm marker
     cv::solvePnP(objPts, imgPts, cameraMatrix, distCoeffs, rvec, tvec);
 
     // Draw XYZ axes at the marker origin (X red, Y green, Z blue toward camera)
@@ -264,7 +264,7 @@ if (found) {
 
     // Pose estimation — uses all detected board corners, robust to partial occlusion
     cv::Mat imgPts, objPts, rvec, tvec;
-    cv::aruco2::getSolvePnpPoints(board, imgPts, objPts, 0.05f); // 5 cm markers
+    cv::aruco2::getSolvePnpPoints(board, objPts, imgPts, 0.05f); // 5 cm markers
     cv::solvePnP(objPts, imgPts, cameraMatrix, distCoeffs, rvec, tvec);
 }
 ```
@@ -294,7 +294,7 @@ for (const auto &d : diamonds) {
 
     // imgPts and objPts are 9×1 (full 3×3 corner grid)
     cv::Mat imgPts, objPts, rvec, tvec;
-    cv::aruco2::getSolvePnpPoints(d, imgPts, objPts, 0.05f); // 5 cm markers
+    cv::aruco2::getSolvePnpPoints(d, objPts, imgPts, 0.05f); // 5 cm markers
     cv::solvePnP(objPts, imgPts, cameraMatrix, distCoeffs, rvec, tvec);
 }
 ```
@@ -353,7 +353,7 @@ auto fractals = cv::aruco2::detectFractals(image, cv::aruco2::FRACTAL_3L_6);
 
 for (const auto &f : fractals) {
     cv::Mat imgPts, objPts, rvec, tvec;
-    cv::aruco2::getSolvePnpPoints(f, imgPts, objPts, 0.10f); // 10 cm outer marker
+    cv::aruco2::getSolvePnpPoints(f, objPts, imgPts, 0.10f); // 10 cm outer marker
     cv::solvePnP(objPts, imgPts, cameraMatrix, distCoeffs, rvec, tvec);
 }
 ```

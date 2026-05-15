@@ -103,7 +103,7 @@ int main(int argc, char** argv) {
             for (const auto& diamond : diamonds) {
                 cv::Mat imgPts, objPts, rvec, tvec;
                 // 9-point grid; ms is one constituent marker side, diamond spans 2*ms
-                cv::aruco2::getSolvePnpPoints(diamond, imgPts, objPts, ms);
+                cv::aruco2::getSolvePnpPoints(diamond, objPts, imgPts, ms);
                 cv::solvePnP(objPts, imgPts, cameraMatrix, distCoeffs, rvec, tvec);
                 cv::aruco2::drawAxis(image, cameraMatrix, distCoeffs, rvec, tvec, ms);
             }

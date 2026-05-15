@@ -1195,8 +1195,8 @@ void drawDetectedFractals(InputOutputArray _image, const std::vector<FractalMark
     }
 }
 
-void getSolvePnpPoints(const FractalMarker &fractal, OutputArray imgPoints,
-                       OutputArray objPoints, float markerSize) {
+void getSolvePnpPoints(const FractalMarker &fractal, OutputArray objPoints,
+                       OutputArray imgPoints, float markerSize) {
     // 3D coords are in normalized space [-1, +1] (total span = 2 units)
     float scale = markerSize / 2.0f;
     int n = int(fractal.imgPoints.size());

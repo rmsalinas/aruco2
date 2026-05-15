@@ -69,7 +69,7 @@ int main(int argc, char** argv) {
         }
 
         cv::Mat imgPtsMat, objPtsMat;
-        cv::aruco2::getSolvePnpPoints(board, imgPtsMat, objPtsMat, markerSize);
+        cv::aruco2::getSolvePnpPoints(board, objPtsMat, imgPtsMat, markerSize);
 
         if (imgPtsMat.empty()) { std::cout << "  [skip] no corner points: " << path << "\n"; continue; }
 

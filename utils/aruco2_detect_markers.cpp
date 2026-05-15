@@ -102,7 +102,7 @@ int main(int argc, char** argv) {
         if (hasCalib && !markers.empty()) {
             for (const auto& marker : markers) {
                 cv::Mat imgPts, objPts, rvec, tvec;
-                cv::aruco2::getSolvePnpPoints(marker, imgPts, objPts, ms);
+                cv::aruco2::getSolvePnpPoints(marker, objPts, imgPts, ms);
                 cv::solvePnP(objPts, imgPts, cameraMatrix, distCoeffs, rvec, tvec);
                 cv::aruco2::drawAxis(image, cameraMatrix, distCoeffs, rvec, tvec, ms * 0.5f);
             }

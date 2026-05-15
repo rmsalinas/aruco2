@@ -230,24 +230,24 @@ CV_WRAP void drawAxis(InputOutputArray image, InputArray cameraMatrix, InputArra
                       InputArray rvec, InputArray tvec, float length);
 
 
-/** @brief Compute image and object points for a single marker to pass to solvePnP().
+/** @brief Compute object and image points for a single marker to pass to solvePnP().
  *
  * @param marker     a detected marker
- * @param imgPoints  output 4×1 array of the marker's corner pixel coordinates (CV_32FC2)
  * @param objPoints  output 4×1 array of the corresponding 3-D object points in marker
  *                   coordinates (CV_32FC3), with the marker centre at the origin and
  *                   half-unit side length (i.e. corners at ±0.5 in X and Y, Z=0)
+ * @param imgPoints  output 4×1 array of the marker's corner pixel coordinates (CV_32FC2)
  *
  * @param markerSize  physical side length of the marker (e.g. metres); objPoints are scaled
  *                    by this value.  Default 1.f returns unit-size points.
  *
  * @code
  * cv::Mat rvec, tvec, imgPts, objPts;
- * cv::aruco2::getSolvePnpPoints(marker, imgPts, objPts, 0.05f); // 5 cm marker
+ * cv::aruco2::getSolvePnpPoints(marker, objPts, imgPts, 0.05f); // 5 cm marker
  * cv::solvePnP(objPts, imgPts, cameraMatrix, distCoeffs, rvec, tvec);
  * @endcode
  */
-CV_WRAP void getSolvePnpPoints(const Marker &marker, OutputArray imgPoints, OutputArray objPoints, float markerSize = 1.f);
+CV_WRAP void getSolvePnpPoints(const Marker &marker, OutputArray objPoints, OutputArray imgPoints, float markerSize = 1.f);
 
 
 /** @brief Result of detecting a ChArUco2-style grid board.
@@ -257,7 +257,7 @@ CV_WRAP void getSolvePnpPoints(const Marker &marker, OutputArray imgPoints, Outp
  * (N+1)×(M+1) observable intersection corners including the board border.
  *
  * `markers` holds the detected ArUco markers (a subset of all board markers when the board is
- * partially occluded).  Use getSolvePnpPoints() to obtain the corresponding image and object
+ * partially occluded).  Use getSolvePnpPoints() to obtain the corresponding object and image
  * point arrays for solvePnP().
  *
  * @sa detectBoard, getSolvePnpPoints(const Board, OutputArray, OutputArray)
@@ -321,13 +321,13 @@ CV_WRAP void drawDetectedBoard(InputOutputArray image, const Board &board,
                                Scalar color = Scalar(0, 255, 0),bool drawMarkerIds=false);
 
 
-/** @brief Compute image and object points for a detected board to pass to solvePnP().
+/** @brief Compute object and image points for a detected board to pass to solvePnP().
  *
  * @param board      a detected board returned by detectBoard()
- * @param imgPoints  output array of marker corner image coordinates for all detected markers (CV_32FC2)
  * @param objPoints  output array of corresponding 3-D object points in board coordinates (CV_32FC3).
  *                   The board origin is at the top-left marker corner; X points right, Y points
  *                   down, Z=0.
+ * @param imgPoints  output array of marker corner image coordinates for all detected markers (CV_32FC2)
  * @param markerSize  physical side length of one marker (e.g. metres); objPoints are scaled
  *                    by this value.  Default 1.f returns unit-size points.
  *
@@ -336,7 +336,7 @@ CV_WRAP void drawDetectedBoard(InputOutputArray image, const Board &board,
  *
  * @sa getSolvePnpPoints(const Marker, OutputArray, OutputArray)
  */
-CV_WRAP void getSolvePnpPoints(const Board &board, OutputArray imgPoints, OutputArray objPoints, float markerSize = 1.f);
+CV_WRAP void getSolvePnpPoints(const Board &board, OutputArray objPoints, OutputArray imgPoints, float markerSize = 1.f);
 
 /** @brief A detected ChArUco2-style diamond marker.
  *
@@ -408,23 +408,23 @@ CV_WRAP void drawDetectedDiamonds(InputOutputArray image, const std::vector<Diam
                                Scalar color = Scalar(0, 255, 0),bool drawMarkerIds=false);
 
 
-/** @brief Compute image and object points for a detected diamond to pass to solvePnP().
+/** @brief Compute object and image points for a detected diamond to pass to solvePnP().
  *
  * Returns all 9 points of the diamond's 3×3 corner grid: the 4 outer corners, the 4
  * edge mid-corners, and the central intersection point.
  *
  * @param diamond    a detected diamond returned by detectDiamonds()
- * @param imgPoints  output 9×1 array of image coordinates of the diamond's 3×3 corner grid (CV_32FC2)
  * @param objPoints  output 9×1 array of corresponding 3-D object points in diamond coordinates
  *                   (CV_32FC3).  The origin is at the top-left corner; X points right,
  *                   Y points down, Z=0.  Adjacent grid points are spaced markerSize apart.
+ * @param imgPoints  output 9×1 array of image coordinates of the diamond's 3×3 corner grid (CV_32FC2)
  * @param markerSize  physical side length of one marker (e.g. metres); objPoints are scaled
  *                    by this value.  Default 1.f returns unit-size points.
  *
  * @sa getSolvePnpPoints(const Marker, OutputArray, OutputArray),
  *     getSolvePnpPoints(const Board, OutputArray, OutputArray)
  */
-CV_WRAP void getSolvePnpPoints(const Diamond &diamond, OutputArray imgPoints, OutputArray objPoints, float markerSize = 1.f);
+CV_WRAP void getSolvePnpPoints(const Diamond &diamond, OutputArray objPoints, OutputArray imgPoints, float markerSize = 1.f);
 
 
 /** @brief Fractal marker type — selects the nested-marker configuration.
@@ -517,8 +517,8 @@ CV_WRAP void drawDetectedFractals(InputOutputArray image, const std::vector<Frac
  * axes.  @p markerSize scales them to physical units (e.g. metres).
  *
  * @param fractal     a detected fractal marker returned by detectFractals()
- * @param imgPoints   output N×1 array of 2-D image points (CV_32FC2)
  * @param objPoints   output N×1 array of 3-D object points (CV_32FC3)
+ * @param imgPoints   output N×1 array of 2-D image points (CV_32FC2)
  * @param markerSize  physical side length of the outer marker; objPoints are scaled by
  *                    @p markerSize / 2.  Default 1.f returns normalised-space points.
  *
@@ -526,8 +526,8 @@ CV_WRAP void drawDetectedFractals(InputOutputArray image, const std::vector<Frac
  *     getSolvePnpPoints(const Board &, OutputArray, OutputArray, float),
  *     getSolvePnpPoints(const Diamond &, OutputArray, OutputArray, float)
  */
-CV_WRAP void getSolvePnpPoints(const FractalMarker &fractal, OutputArray imgPoints,
-                               OutputArray objPoints, float markerSize = 1.f);
+CV_WRAP void getSolvePnpPoints(const FractalMarker &fractal, OutputArray objPoints,
+                               OutputArray imgPoints, float markerSize = 1.f);
 
 //! @}
 

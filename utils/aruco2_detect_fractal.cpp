@@ -107,7 +107,7 @@ int main(int argc, char** argv) {
         if (hasCalib && !fractals.empty()) {
             for (const auto& fractal : fractals) {
                 cv::Mat imgPts, objPts, rvec, tvec;
-                cv::aruco2::getSolvePnpPoints(fractal, imgPts, objPts, ms);
+                cv::aruco2::getSolvePnpPoints(fractal, objPts, imgPts, ms);
                 cv::solvePnP(objPts, imgPts, cameraMatrix, distCoeffs, rvec, tvec);
                 // axis length = ms/2 so it reaches the outer marker edge
                 cv::aruco2::drawAxis(image, cameraMatrix, distCoeffs, rvec, tvec, ms * 0.5f);
