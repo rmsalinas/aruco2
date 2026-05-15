@@ -5,6 +5,7 @@
 
 #include <opencv2/core.hpp>
 #include "aruco2.hpp"
+#include <map>
 namespace cv :: aruco2{
 
 //! @addtogroup objdetect_aruco
@@ -30,6 +31,7 @@ class CV_EXPORTS_W_SIMPLE Dictionary {
     CV_PROP_RW Mat bytesList;         ///< marker code information. See class description for more details
     CV_PROP_RW int markerSize;        ///< number of bits per dimension
     CV_PROP_RW int maxCorrectionBits; ///< maximum number of bits that can be corrected
+    CV_PROP_RW std::map<uint64_t, std::pair<int, int>> bits_id; ///< a map with all marker bytes and its associated (id, rotation)
 
     CV_WRAP Dictionary();
 

@@ -23,7 +23,7 @@ private:
     static inline float  getSubpixelValue(const cv::Mat &im_grey,const cv::Point2f &p);
     static inline int   getMarkerId(  cv::Mat  candidateBits,int &idx, int &nrotations, const DetectorParameters &params,Dictionary &dict);
     static inline int isInto(const std::vector<cv::Point2f> &a, const std::vector<cv::Point2f> &b) ;
-    static std::vector<std::vector<cv::Point>> visitedAwareTracingContour(cv::Mat &padded, size_t minSize = 1,float maxRevisited=0.1) ;
+    static std::vector<std::vector<cv::Point>> visitedAwareTracingContour(cv::Mat &padded_io, size_t minSize = 1,float maxRevisited=0.1) ;
     static int getBorderErrors(const cv::Mat &bits, int markerSize, int borderSize) ;
     static void thres255Adaptive(cv::Mat &in,cv::Mat &out,int off=2,int thres=5);
 };
@@ -287,7 +287,7 @@ float MarkerDetector::getSubpixelValue(const cv::Mat &im_grey, const cv::Point2f
 }
 Marker  MarkerDetector::sort( const  Marker &marker){
     Marker res_marker=marker;
-    /// sort the points in anti-clockwise order
+    /// sort the points in clockwise order
     double dx1 = res_marker.corners[1].x - res_marker.corners[0].x;
     double dy1 = res_marker.corners[1].y - res_marker.corners[0].y;
     double dx2 = res_marker.corners[2].x - res_marker.corners[0].x;
@@ -301,16 +301,18 @@ Marker  MarkerDetector::sort( const  Marker &marker){
 /**
  * @brief Traces the contours of a binary image using our visited aware Tracing algorithm.
  *
+ * @param padded_io input binary image. It will be modified!
+ *
  * This function scans a binary image (foreground as 255, background as 0) and
  * finds the external boundaries of all distinct objects.
  */
-std::vector<std::vector<cv::Point>> MarkerDetector::visitedAwareTracingContour(cv::Mat &padded, size_t minSize, float maxRevisited ) {
-    if (padded.empty() || padded.type() != CV_8UC1) return {};
+std::vector<std::vector<cv::Point>> MarkerDetector::visitedAwareTracingContour(cv::Mat &padded_io, size_t minSize, float maxRevisited ) {
+    if (padded_io.empty() || padded_io.type() != CV_8UC1) return {};
     // 1. Fast Initialization and Padding
-    int rows = padded.rows;
-    int cols = padded.cols;
-    int32_t step = padded.step;
-    uchar* data = padded.data;
+    int rows = padded_io.rows;
+    int cols = padded_io.cols;
+    int32_t step = padded_io.step;
+    uchar* data = padded_io.data;
     // Fast clear of top and bottom rows
     memset(data, 0, cols);
     memset(data + (rows - 1) * step, 0, cols);

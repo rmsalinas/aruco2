@@ -8,7 +8,8 @@
 #include "aruco_dictionary.hpp"
 #include "predefined_dictionaries.hpp"
 #include "predefined_dictionaries_apriltag.hpp"
-
+#include <iostream>
+#include <bitset>
 namespace  cv :: aruco2 {
 
 using namespace std;
@@ -42,6 +43,29 @@ Dictionary::Dictionary(const Mat &_bytesList, int _markerSize, int _maxcorr) {
     markerSize = _markerSize;
     maxCorrectionBits = _maxcorr;
     bytesList = _bytesList;
+
+    if (bytesList.empty() || markerSize == 0) return;
+
+    // nbytes is the number of bytes for each rotation
+    int nbytes = bytesList.cols; // Since bytesList is CV_8UC4, cols == nbytes
+
+    for (int m = 0; m < bytesList.rows; m++) {
+        for (int r = 0; r < 4; r++) {
+            // skip nbytes for each rotation r
+            const uchar* bytesPtr = bytesList.ptr(m) + r * nbytes;
+            uint64_t val = 0;
+
+            // we can only pack into uint64_t if nbytes <= 8 (up to 8x8 bits)
+            if (nbytes <= 8) {
+                for (int j = 0; j < nbytes; j++) {
+                    val <<= 8;
+                    val |= bytesPtr[j];
+                }
+                // save the rotation in the map pointing to the marker ID and rotation
+                bits_id[val] = std::make_pair(m, r);
+            }
+        }
+    }
 }
 
 
@@ -98,35 +122,59 @@ bool Dictionary::identify(const Mat &onlyBits, CV_OUT int &idx, CV_OUT int &rota
 
     int maxCorrectionRecalculed = int(double(maxCorrectionBits) * maxCorrectionRate);
 
-    Mat candidateBytes = getByteListFromBits(onlyBits);
-    int nbytes = candidateBytes.cols;
-    const uchar* candPtr = candidateBytes.ptr();
+    //slow path, when maxCorrectionRate > 0, we need to compute hamming distance for all markers in the dictionary
+    if(maxCorrectionRecalculed>0){
+        Mat candidateBytes = getByteListFromBits(onlyBits);
+        int nbytes = candidateBytes.cols;
+        const uchar* candPtr = candidateBytes.ptr();
+        idx = -1; // by default, not found
 
-    idx = -1; // by default, not found
+        // search closest marker in dict
+        for(int m = 0; m < bytesList.rows; m++) {
+            int currentMinDistance = markerSize * markerSize + 1;
+            int currentRotation = -1;
+            const uchar* dictPtr = bytesList.ptr(m);
+            for(int r = 0; r < 4; r++) {
+                int currentHamming = cv::hal::normHamming(dictPtr + r * nbytes, candPtr, nbytes);
 
-    // search closest marker in dict
-    for(int m = 0; m < bytesList.rows; m++) {
-        int currentMinDistance = markerSize * markerSize + 1;
-        int currentRotation = -1;
-        const uchar* dictPtr = bytesList.ptr(m);
-        for(int r = 0; r < 4; r++) {
-            int currentHamming = cv::hal::normHamming(dictPtr + r * nbytes, candPtr, nbytes);
+                if(currentHamming < currentMinDistance) {
+                    currentMinDistance = currentHamming;
+                    currentRotation = r;
+                }
+            }
 
-            if(currentHamming < currentMinDistance) {
-                currentMinDistance = currentHamming;
-                currentRotation = r;
+            // if maxCorrection is fulfilled, return this one
+            if(currentMinDistance <= maxCorrectionRecalculed) {
+                idx = m;
+                rotation = currentRotation;
+                break;
             }
         }
 
-        // if maxCorrection is fulfilled, return this one
-        if(currentMinDistance <= maxCorrectionRecalculed) {
-            idx = m;
-            rotation = currentRotation;
-            break;
-        }
+        return idx != -1;
     }
+    else{//ultra fast path, only exact matches
+        Mat candidateBytes = getByteListFromBits(onlyBits);
+        int nbytes = candidateBytes.cols;
+        const uchar* candPtr = candidateBytes.ptr();
+        uint64_t val = 0;
 
-    return idx != -1;
+        // we can only pack into uint64_t if nbytes <= 8 (up to 8x8 bits)
+        if (nbytes <= 8) {
+            for (int j = 0; j < nbytes; j++) {
+                val <<= 8;
+                val |= candPtr[j];
+            }
+            auto it = bits_id.find(val);//exact search in time O(logn)
+            if (it != bits_id.end()) {
+                idx = it->second.first;
+                rotation = it->second.second;
+                return true;
+            }
+        }
+        return false;
+
+    }
 }
 
 
@@ -270,89 +318,102 @@ Mat Dictionary::getBitsFromByteList(const Mat &byteList, int markerSize, int rot
 Dictionary getPredefinedDictionary(DictionaryType name) {
     // DictionaryData constructors calls
     //    moved out of globals so construted on first use, which allows lazy-loading of opencv dll
-    static const Dictionary DICT_ARUCO_DATA = Dictionary(Mat(1024, (5 * 5 + 7) / 8, CV_8UC4, (uchar*)DICT_ARUCO_BYTES), 5, 0);
 
-    static const Dictionary DICT_4X4_50_DATA = Dictionary(Mat(50, (4 * 4 + 7) / 8, CV_8UC4, (uchar*)DICT_4X4_1000_BYTES), 4, 1);
-    static const Dictionary DICT_4X4_100_DATA = Dictionary(Mat(100, (4 * 4 + 7) / 8, CV_8UC4, (uchar*)DICT_4X4_1000_BYTES), 4, 1);
-    static const Dictionary DICT_4X4_250_DATA = Dictionary(Mat(250, (4 * 4 + 7) / 8, CV_8UC4, (uchar*)DICT_4X4_1000_BYTES), 4, 1);
-    static const Dictionary DICT_4X4_1000_DATA = Dictionary(Mat(1000, (4 * 4 + 7) / 8, CV_8UC4, (uchar*)DICT_4X4_1000_BYTES), 4, 0);
-
-    static const Dictionary DICT_5X5_50_DATA = Dictionary(Mat(50, (5 * 5 + 7) / 8, CV_8UC4, (uchar*)DICT_5X5_1000_BYTES), 5, 3);
-    static const Dictionary DICT_5X5_100_DATA = Dictionary(Mat(100, (5 * 5 + 7) / 8, CV_8UC4, (uchar*)DICT_5X5_1000_BYTES), 5, 3);
-    static const Dictionary DICT_5X5_250_DATA = Dictionary(Mat(250, (5 * 5 + 7) / 8, CV_8UC4, (uchar*)DICT_5X5_1000_BYTES), 5, 2);
-    static const Dictionary DICT_5X5_1000_DATA = Dictionary(Mat(1000, (5 * 5 + 7) / 8, CV_8UC4, (uchar*)DICT_5X5_1000_BYTES), 5, 2);
-
-    static const Dictionary DICT_6X6_50_DATA = Dictionary(Mat(50, (6 * 6 + 7) / 8, CV_8UC4, (uchar*)DICT_6X6_1000_BYTES), 6, 6);
-    static const Dictionary DICT_6X6_100_DATA = Dictionary(Mat(100, (6 * 6 + 7) / 8, CV_8UC4, (uchar*)DICT_6X6_1000_BYTES), 6, 5);
-    static const Dictionary DICT_6X6_250_DATA = Dictionary(Mat(250, (6 * 6 + 7) / 8, CV_8UC4, (uchar*)DICT_6X6_1000_BYTES), 6, 5);
-    static const Dictionary DICT_6X6_1000_DATA = Dictionary(Mat(1000, (6 * 6 + 7) / 8, CV_8UC4, (uchar*)DICT_6X6_1000_BYTES), 6, 4);
-
-    static const Dictionary DICT_7X7_50_DATA = Dictionary(Mat(50, (7 * 7 + 7) / 8, CV_8UC4, (uchar*)DICT_7X7_1000_BYTES), 7, 9);
-    static const Dictionary DICT_7X7_100_DATA = Dictionary(Mat(100, (7 * 7 + 7) / 8, CV_8UC4, (uchar*)DICT_7X7_1000_BYTES), 7, 8);
-    static const Dictionary DICT_7X7_250_DATA = Dictionary(Mat(250, (7 * 7 + 7) / 8, CV_8UC4, (uchar*)DICT_7X7_1000_BYTES), 7, 8);
-    static const Dictionary DICT_7X7_1000_DATA = Dictionary(Mat(1000, (7 * 7 + 7) / 8, CV_8UC4, (uchar*)DICT_7X7_1000_BYTES), 7, 6);
-
-    static const Dictionary DICT_APRILTAG_16h5_DATA = Dictionary(Mat(30, (4 * 4 + 7) / 8, CV_8UC4, (uchar*)DICT_APRILTAG_16h5_BYTES), 4, 0);
-    static const Dictionary DICT_APRILTAG_25h9_DATA = Dictionary(Mat(35, (5 * 5 + 7) / 8, CV_8UC4, (uchar*)DICT_APRILTAG_25h9_BYTES), 5, 0);
-    static const Dictionary DICT_APRILTAG_36h10_DATA = Dictionary(Mat(2320, (6 * 6 + 7) / 8, CV_8UC4, (uchar*)DICT_APRILTAG_36h10_BYTES), 6, 0);
-    static const Dictionary DICT_APRILTAG_36h11_DATA = Dictionary(Mat(587, (6 * 6 + 7) / 8, CV_8UC4, (uchar*)DICT_APRILTAG_36h11_BYTES), 6, 0);
-
-    static const Dictionary DICT_ARUCO_MIP_36h12_DATA = Dictionary(Mat(250, (6 * 6 + 7) / 8, CV_8UC4, (uchar*)DICT_ARUCO_MIP_36h12_BYTES), 6, 12);
 
     switch(name) {
 
-    case DICT_ARUCO_ORIGINAL:
+    case DICT_ARUCO_ORIGINAL:{
+        static const Dictionary DICT_ARUCO_DATA = Dictionary(Mat(1024, (5 * 5 + 7) / 8, CV_8UC4, (uchar*)DICT_ARUCO_BYTES), 5, (3/2)-1);
         return Dictionary(DICT_ARUCO_DATA);
+    }break;
 
-    case DICT_4X4_50:
+    case DICT_4X4_50:{
+        static const Dictionary DICT_4X4_50_DATA = Dictionary(Mat(50, (4 * 4 + 7) / 8, CV_8UC4, (uchar*)DICT_4X4_1000_BYTES), 4, (4/2)-1);
         return Dictionary(DICT_4X4_50_DATA);
-    case DICT_4X4_100:
-        return Dictionary(DICT_4X4_100_DATA);
-    case DICT_4X4_250:
+    }break;
+
+    case DICT_4X4_250:{
+        static const Dictionary DICT_4X4_250_DATA = Dictionary(Mat(250, (4 * 4 + 7) / 8, CV_8UC4, (uchar*)DICT_4X4_1000_BYTES), 4, (3/2)-1);
         return Dictionary(DICT_4X4_250_DATA);
-    case DICT_4X4_1000:
+    }break;
+    case DICT_4X4_1000:{
+        static const Dictionary DICT_4X4_1000_DATA = Dictionary(Mat(1000, (4 * 4 + 7) / 8, CV_8UC4, (uchar*)DICT_4X4_1000_BYTES), 4, (2/2)-1);
         return Dictionary(DICT_4X4_1000_DATA);
-
-    case DICT_5X5_50:
+    }break;
+    case DICT_5X5_50:{
+        static const Dictionary DICT_5X5_50_DATA = Dictionary(Mat(50, (5 * 5 + 7) / 8, CV_8UC4, (uchar*)DICT_5X5_1000_BYTES), 5, (8/2)-1);
         return Dictionary(DICT_5X5_50_DATA);
-    case DICT_5X5_100:
+    }break;
+    case DICT_5X5_100:{
+        static const Dictionary DICT_5X5_100_DATA = Dictionary(Mat(100, (5 * 5 + 7) / 8, CV_8UC4, (uchar*)DICT_5X5_1000_BYTES), 5, (7/2)-1);
         return Dictionary(DICT_5X5_100_DATA);
-    case DICT_5X5_250:
+    }break;
+    case DICT_5X5_250:{
+        static const Dictionary DICT_5X5_250_DATA = Dictionary(Mat(250, (5 * 5 + 7) / 8, CV_8UC4, (uchar*)DICT_5X5_1000_BYTES), 5, (6/2)-1);
         return Dictionary(DICT_5X5_250_DATA);
-    case DICT_5X5_1000:
+    }break;
+    case DICT_5X5_1000:{
+        static const Dictionary DICT_5X5_1000_DATA = Dictionary(Mat(1000, (5 * 5 + 7) / 8, CV_8UC4, (uchar*)DICT_5X5_1000_BYTES), 5, (5/2)-1);
         return Dictionary(DICT_5X5_1000_DATA);
-
-    case DICT_6X6_50:
+    }break;
+    case DICT_6X6_50:{
+        static const Dictionary DICT_6X6_50_DATA = Dictionary(Mat(50, (6 * 6 + 7) / 8, CV_8UC4, (uchar*)DICT_6X6_1000_BYTES), 6, (13/2)-1);
         return Dictionary(DICT_6X6_50_DATA);
-    case DICT_6X6_100:
+    }break;
+    case DICT_6X6_100:{
+        static const Dictionary DICT_6X6_100_DATA = Dictionary(Mat(100, (6 * 6 + 7) / 8, CV_8UC4, (uchar*)DICT_6X6_1000_BYTES), 6, (12/2)-1);
         return Dictionary(DICT_6X6_100_DATA);
-    case DICT_6X6_250:
+    }break;
+    case DICT_6X6_250:{
+        static const Dictionary DICT_6X6_250_DATA = Dictionary(Mat(250, (6 * 6 + 7) / 8, CV_8UC4, (uchar*)DICT_6X6_1000_BYTES), 6, (11/2)-1);
         return Dictionary(DICT_6X6_250_DATA);
-    case DICT_6X6_1000:
+    }break;
+    case DICT_6X6_1000:{
+        static const Dictionary DICT_6X6_1000_DATA = Dictionary(Mat(1000, (6 * 6 + 7) / 8, CV_8UC4, (uchar*)DICT_6X6_1000_BYTES), 6, (9/2)-1);
         return Dictionary(DICT_6X6_1000_DATA);
-
-    case DICT_7X7_50:
+    }break;
+    case DICT_7X7_50:{
+        static const Dictionary DICT_7X7_50_DATA = Dictionary(Mat(50, (7 * 7 + 7) / 8, CV_8UC4, (uchar*)DICT_7X7_1000_BYTES), 7, (19/2)-1);
         return Dictionary(DICT_7X7_50_DATA);
-    case DICT_7X7_100:
+    }break;
+    case DICT_7X7_100:{
+        static const Dictionary DICT_7X7_100_DATA = Dictionary(Mat(100, (7 * 7 + 7) / 8, CV_8UC4, (uchar*)DICT_7X7_1000_BYTES), 7, (18/2)-1);
         return Dictionary(DICT_7X7_100_DATA);
-    case DICT_7X7_250:
+    }break;
+    case DICT_7X7_250:{
+        static const Dictionary DICT_7X7_250_DATA = Dictionary(Mat(250, (7 * 7 + 7) / 8, CV_8UC4, (uchar*)DICT_7X7_1000_BYTES), 7, (17/2)-1);
         return Dictionary(DICT_7X7_250_DATA);
-    case DICT_7X7_1000:
+    }break;
+    case DICT_7X7_1000:{
+        static const Dictionary DICT_7X7_1000_DATA = Dictionary(Mat(1000, (7 * 7 + 7) / 8, CV_8UC4, (uchar*)DICT_7X7_1000_BYTES), 7, (14/2)-1);
         return Dictionary(DICT_7X7_1000_DATA);
-
-    case DICT_APRILTAG_16h5:
+    }break;
+    case DICT_APRILTAG_16h5:{
+        static const Dictionary DICT_APRILTAG_16h5_DATA = Dictionary(Mat(30, (4 * 4 + 7) / 8, CV_8UC4, (uchar*)DICT_APRILTAG_16h5_BYTES), 4, (5/2)-1);
         return Dictionary(DICT_APRILTAG_16h5_DATA);
-    case DICT_APRILTAG_25h9:
+    }break;
+    case DICT_APRILTAG_25h9:{
+        static const Dictionary DICT_APRILTAG_25h9_DATA = Dictionary(Mat(35, (5 * 5 + 7) / 8, CV_8UC4, (uchar*)DICT_APRILTAG_25h9_BYTES), 5, (9/2)-1);
         return Dictionary(DICT_APRILTAG_25h9_DATA);
-    case DICT_APRILTAG_36h10:
+    }break;
+    case DICT_APRILTAG_36h10:{
+        static const Dictionary DICT_APRILTAG_36h10_DATA = Dictionary(Mat(2320, (6 * 6 + 7) / 8, CV_8UC4, (uchar*)DICT_APRILTAG_36h10_BYTES), 6, (10/2)-1);
         return Dictionary(DICT_APRILTAG_36h10_DATA);
-    case DICT_APRILTAG_36h11:
+    }break;
+    case DICT_APRILTAG_36h11:{
+        static const Dictionary DICT_APRILTAG_36h11_DATA = Dictionary(Mat(587, (6 * 6 + 7) / 8, CV_8UC4, (uchar*)DICT_APRILTAG_36h11_BYTES), 6, (11/2)-1);
         return Dictionary(DICT_APRILTAG_36h11_DATA);
-
-    case DICT_ARUCO_MIP_36h12:
+    }break;
+    case DICT_ARUCO_MIP_36h12:{
+        static const Dictionary DICT_ARUCO_MIP_36h12_DATA = Dictionary(Mat(250, (6 * 6 + 7) / 8, CV_8UC4, (uchar*)DICT_ARUCO_MIP_36h12_BYTES), 6, (12/2)-1);
         return Dictionary(DICT_ARUCO_MIP_36h12_DATA);
+    }break;
+    default:{
+        static const Dictionary DICT_4X4_100_DATA = Dictionary(Mat(100, (4 * 4 + 7) / 8, CV_8UC4, (uchar*)DICT_4X4_1000_BYTES), 4, (3/2)-1);
+        return Dictionary(DICT_4X4_100_DATA);
     }
-    return Dictionary(DICT_4X4_50_DATA);
+    }
+    //    return Dictionary(DICT_4X4_50_DATA);
 }
 
 
@@ -478,6 +539,30 @@ Dictionary extendDictionary(int nMarkers, int markerSize, const Dictionary &base
 
     // update the maximum number of correction bits for the generated dictionary
     out.maxCorrectionBits = (tau - 1) / 2;
+
+
+    //finally, recalculate bits_id
+    out.bits_id.clear();
+    // nbytes is the number of bytes for each rotation
+    int nbytes = out.bytesList.cols; // Since bytesList is CV_8UC4, cols == nbytes
+
+    for (int m = 0; m < out.bytesList.rows; m++) {
+        for (int r = 0; r < 4; r++) {
+            // skip nbytes for each rotation r
+            const uchar* bytesPtr = out.bytesList.ptr(m) + r * nbytes;
+            uint64_t val = 0;
+
+            // we can only pack into uint64_t if nbytes <= 8 (up to 8x8 bits)
+            if (nbytes <= 8) {
+                for (int j = 0; j < nbytes; j++) {
+                    val <<= 8;
+                    val |= bytesPtr[j];
+                }
+                // save the rotation in the map pointing to the marker ID and rotation
+                out.bits_id[val] = std::make_pair(m, r);
+            }
+        }
+    }
 
     return out;
 }
