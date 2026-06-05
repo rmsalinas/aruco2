@@ -62,8 +62,8 @@ int main(int argc, char** argv) {
         if (image.empty()) { std::cerr << "  [warn] cannot read: " << path << "\n"; continue; }
         if (imageSize.width == 0) imageSize = image.size();
 
-        cv::aruco2::Board board;
-        if (!cv::aruco2::detectBoard(image, boardSize, dict, board)) {
+        cv::aruco2::GridBoard board;
+        if (!cv::aruco2::detectGridBoard(image, boardSize, dict, board)) {
             std::cout << "  [skip] board not found: " << path << "\n";
             continue;
         }
@@ -83,7 +83,7 @@ int main(int argc, char** argv) {
         if (showImages) {
             cv::Mat vis;
             cv::cvtColor(image, vis, cv::COLOR_GRAY2BGR);
-            cv::aruco2::drawDetected(vis, board, cv::Scalar(0, 255, 0), true);
+            cv::aruco2::drawGridBoard(vis, board, cv::Scalar(0, 255, 0), true);
             //resize to 1280x720
             cv::resize(vis,vis,cv::Size(1280,720));
             cv::imshow("calibration", vis);

@@ -52,11 +52,20 @@
  *  If you have any further question, please contact fj.romero[at]uco[dot]es
 */
 
-#include "aruco2.hpp"
+//#include "../precomp.hpp" only needed inside opencv
+#include "opencv2/objdetect/aruco2.hpp"
 #include <opencv2/imgproc.hpp>
-#include <opencv2/highgui.hpp>
-#include <opencv2/calib3d.hpp>
 #include <opencv2/flann.hpp>
+
+//IF OpenCV 5
+#if CV_VERSION_MAJOR >= 5
+#include <opencv2/features.hpp>
+#include <opencv2/3d.hpp>
+//IF OpenCV 4
+#elif CV_VERSION_MAJOR >= 4
+#include <opencv2/features2d.hpp>
+#include <opencv2/calib3d.hpp>
+#endif
 
 #include <map>
 #include <vector>
@@ -80,6 +89,7 @@ namespace nanofractal{
 */
 
 
+namespace {
 namespace nanofractal {
 
 struct Homographer{
@@ -109,7 +119,7 @@ void kfilter(std::vector<cv::KeyPoint> &kpoints)
     }
     float thresoldResp = (maxResp - minResp) * 0.20f + minResp;
 
-    for(uint32_t xi=0; xi<kpoints.size();xi++)
+    for(size_t xi=0; xi<kpoints.size();xi++)
     {
         //Erase keypoints with low response (20%)
         if(kpoints[xi].response < thresoldResp){
@@ -118,7 +128,7 @@ void kfilter(std::vector<cv::KeyPoint> &kpoints)
         }
 
         //Duplicated keypoints (closer)
-        for(uint32_t xj=xi+1; xj<kpoints.size();xj++)
+        for(size_t xj=xi+1; xj<kpoints.size();xj++)
         {
             if(pow(kpoints[xi].pt.x - kpoints[xj].pt.x,2) + pow(kpoints[xi].pt.y - kpoints[xj].pt.y,2) < 100)
             {
@@ -164,12 +174,12 @@ void assignClass(const cv::Mat &im, std::vector<cv::KeyPoint>& kpoints, float si
         int endX=r.x+r.width;
         int endY=r.y+r.height;
         uchar minV=255,maxV=0;
-        for(int y=r.y; y<endY; y++){
-            const uchar *ptr=im.ptr<uchar>(y);
-            for(int x=r.x; x<endX; x++)
+        for(int row=r.y; row<endY; row++){
+            const uchar *ptr=im.ptr<uchar>(row);
+            for(int col=r.x; col<endX; col++)
             {
-                if(minV>ptr[x]) minV=ptr[x];
-                if(maxV<ptr[x]) maxV=ptr[x];
+                if(minV>ptr[col]) minV=ptr[col];
+                if(maxV<ptr[col]) maxV=ptr[col];
             }
         }
 
@@ -181,62 +191,61 @@ void assignClass(const cv::Mat &im, std::vector<cv::KeyPoint>& kpoints, float si
         double thres=(maxV+minV)/2.0;
 
         unsigned int nZ=0;
-        //count non zero considering the threshold
-        for(int y=0; y<wsizeFull; y++){
-            const uchar *ptr=im.ptr<uchar>( r.y+y)+r.x;
-            uchar *thresPtr= thresIm.ptr<uchar>(y);
-            for(int x=0; x<wsizeFull; x++){
-                if( ptr[x]>thres) {
+        for(int row=0; row<wsizeFull; row++){
+            const uchar *ptr=im.ptr<uchar>( r.y+row)+r.x;
+            uchar *thresPtr= thresIm.ptr<uchar>(row);
+            for(int col=0; col<wsizeFull; col++){
+                if( ptr[col]>thres) {
                     nZ++;
-                    thresPtr[x]=255;
+                    thresPtr[col]=255;
                 }
-                else thresPtr[x]=0;
+                else thresPtr[col]=0;
             }
         }
         //set all to zero labels.setTo(cv::Scalar::all(0));
-        for(int y=0; y<thresIm.rows; y++){
-            uchar *labelsPtr=labels.ptr<uchar>(y);
-            for(int x=0; x<thresIm.cols; x++) labelsPtr[x]=0;
+        for(int row=0; row<thresIm.rows; row++){
+            uchar *labelsPtr=labels.ptr<uchar>(row);
+            for(int col=0; col<thresIm.cols; col++) labelsPtr[col]=0;
         }
 
         uchar newLab = 1;
         std::map<uchar, uchar> unions;
-        for(int y=0; y<thresIm.rows; y++){
-            uchar *thresPtr=thresIm.ptr<uchar>(y);
-            uchar *labelsPtr=labels.ptr<uchar>(y);
-            for(int x=0; x<thresIm.cols; x++)
+        for(int row=0; row<thresIm.rows; row++){
+            uchar *thresPtr=thresIm.ptr<uchar>(row);
+            uchar *labelsPtr=labels.ptr<uchar>(row);
+            for(int col=0; col<thresIm.cols; col++)
             {
-                uchar reg = thresPtr[x];
+                uchar reg = thresPtr[col];
                 uchar lleft_px = 0;
                 uchar ltop_px = 0;
 
-                if(x-1>-1 && reg==thresPtr[x-1])
-                    lleft_px =labelsPtr[x-1];
+                if(col-1>-1 && reg==thresPtr[col-1])
+                    lleft_px =labelsPtr[col-1];
 
-                if(y-1>-1 && reg==thresIm.ptr<uchar>(y-1)[x])
-                    ltop_px =  labels.at<uchar>(y-1, x);
+                if(row-1>-1 && reg==thresIm.ptr<uchar>(row-1)[col])
+                    ltop_px =  labels.at<uchar>(row-1, col);
 
                 if(lleft_px==0 && ltop_px==0)
-                    labelsPtr[x] = newLab++;
+                    labelsPtr[col] = newLab++;
 
                 else if(lleft_px!=0 && ltop_px!=0)
                 {
                     if(lleft_px < ltop_px)
                     {
-                        labelsPtr[x]  = lleft_px;
+                        labelsPtr[col]  = lleft_px;
                         unions[ltop_px] = lleft_px;
                     }
                     else if(lleft_px > ltop_px)
                     {
-                        labelsPtr[x]  = ltop_px;
+                        labelsPtr[col]  = ltop_px;
                         unions[lleft_px] = ltop_px;
                     }
                     //Same
-                    else labelsPtr[x]  = ltop_px;
+                    else labelsPtr[col]  = ltop_px;
                 }
                 else
-                    if(lleft_px!=0) labelsPtr[x]  = lleft_px;
-                    else labelsPtr[x]  = ltop_px;
+                    if(lleft_px!=0) labelsPtr[col]  = lleft_px;
+                    else labelsPtr[col]  = ltop_px;
             }
         }
 
@@ -280,9 +289,9 @@ private:
 };
 
 
-FractalMarker::FractalMarker(int id, cv::Mat m, std::vector<cv::Point3f> corners, std::vector<int> id_submarkers)
+FractalMarker::FractalMarker(int _id, cv::Mat m, std::vector<cv::Point3f> corners, std::vector<int> id_submarkers)
 {
-    this->id = id;
+    this->id = _id;
     this->_M = m;
     for(auto pt:corners)
         keypts.push_back(cv::KeyPoint(pt.x,pt.y,-1,-1,-1,-1,0));
@@ -386,8 +395,8 @@ void FractalMarkerSet::convertToMeters(float size)
     // now, get the size of a pixel, and change scale
     float pixSizeM = size / float(fractalMarkerCollection[idExternal].getMarkerSize());
 
-    for (size_t i=0; i < fractalMarkerCollection.size(); i++)
-        for(auto &kpt:fractalMarkerCollection[i].keypts)
+    for (auto &id_marker:fractalMarkerCollection)
+        for(auto &kpt:id_marker.second.keypts)
             kpt.pt *= pixSizeM;
 }
 
@@ -719,8 +728,8 @@ std::vector<FractalMarker> FractalMarkerDetector::detect(const cv::Mat &img, std
     std::vector<cv::Point3f>objpoints;
     for(auto marker:detected)
     {
-        for(auto p2d:marker)
-            imgpoints.push_back(p2d);
+        for(auto p2d_marker:marker)
+            imgpoints.push_back(p2d_marker);
 
         for(int c=0; c<4; c++)
         {
@@ -851,7 +860,7 @@ std::vector<FractalMarker>  FractalMarkerDetector::detect(const cv::Mat &img){
     cv::findContours(thresImage, contours, cv::noArray(), cv::RETR_LIST, cv::CHAIN_APPROX_NONE);
 
     //analyze  it is a paralelepiped likely to be the marker
-    for (unsigned int i = 0; i < contours.size(); i++)
+    for (size_t i = 0; i < contours.size(); i++)
     {
         // check it is a possible element by first checking that is is large enough
         if (120 > int(contours[i].size())  ) continue;
@@ -862,7 +871,7 @@ std::vector<FractalMarker>  FractalMarkerDetector::detect(const cv::Mat &img){
         // add the points
         std::vector<cv::Point2f> markerCandidate;
         for (int j = 0; j < 4; j++)
-            markerCandidate.push_back( cv::Point2f( approxCurve[j].x,approxCurve[j].y));
+            markerCandidate.push_back( cv::Point2f( float(approxCurve[j].x),float(approxCurve[j].y)));
 
         //sort corner in clockwise direction
         markerCandidate=sort(markerCandidate);
@@ -873,7 +882,7 @@ std::vector<FractalMarker>  FractalMarkerDetector::detect(const cv::Mat &img){
 
         for(auto b_vm:fractalMarkerSet.bits_ids)
         {
-            int nbitsWithBorder = sqrt(b_vm.first)+2;
+            int nbitsWithBorder = int(sqrt(b_vm.first))+2;
             cv::Mat bits(nbitsWithBorder,nbitsWithBorder,CV_8UC1);
             int pixelSum=0;
 
@@ -917,13 +926,13 @@ std::vector<FractalMarker>  FractalMarkerDetector::detect(const cv::Mat &img){
     if(candidates.size()>0){
         ////////////////////////////////////////////
         //finally subpixel corner refinement
-        int halfwsize= 4*float(bwimage.cols)/float(bwimage.cols) +0.5 ;
+        int halfwsize= int(4*float(bwimage.cols)/float(bwimage.cols) +0.5) ;
         std::vector<cv::Point2f> Corners;
         for (const auto &m:candidates)
             Corners.insert(Corners.end(), m.second.begin(),m.second.end());
         cv::cornerSubPix(bwimage, Corners, cv::Size(halfwsize,halfwsize), cv::Size(-1, -1),cv::TermCriteria( cv::TermCriteria::MAX_ITER | cv::TermCriteria::EPS, 12, 0.005));
         // copy back to the markers
-        for (unsigned int i = 0; i < candidates.size(); i++)
+        for (size_t i = 0; i < candidates.size(); i++)
         {
             DetectedFractalMarkers.push_back(fractalMarkerSet.fractalMarkerCollection[candidates[i].first]);
             for (int c = 0; c < 4; c++) DetectedFractalMarkers[i].push_back(Corners[i * 4 + c]);
@@ -1035,7 +1044,8 @@ std::vector<cv::Point2f>  FractalMarkerDetector::sort( const  std::vector<cv::Po
     }
     return res_marker;
 }
-}
+} // namespace nanofractal
+} // anonymous namespace
 
 // ---------------------------------------------------------------------------
 // cv::aruco2 wrappers
@@ -1053,7 +1063,7 @@ static std::string fractalTypeName(FractalType ft) {
     return "FRACTAL_3L_6";
 }
 
-void generateFractalImage(OutputArray _img, const FractalType &ftype, int bitSize) {
+void getFractalMarkerImage(OutputArray _img, FractalType ftype, int bitSize) {
     nanofractal::FractalMarkerSet fmset(fractalTypeName(ftype));
 
     // The innermost marker (highest id) controls the per-bit pixel size.
@@ -1163,13 +1173,14 @@ std::vector<FractalMarker> detectFractals(InputArray _img, FractalType ftype) {
     return {m};
 }
 
-void drawDetected(InputOutputArray _image, const std::vector<FractalMarker> &fractals,
+void drawFractals(InputOutputArray _image, const std::vector<FractalMarker> &fractals,
                           Scalar color, bool drawAllImagePoints) {
     cv::Mat image = _image.getMat();
 
+
     float lineWidthF = std::max(1.f, std::min(5.f, float(image.cols) / 500.f));
     int lineWidth = int(std::round(lineWidthF));
-    int dotRadius = std::max(2, int(std::round(lineWidthF * 2.f)));
+    int dotRadius = std::max(2, int(std::round(lineWidthF * 1.2f)));
 
     for (const auto &m : fractals) {
         if (m.corners.size() < 4) continue;

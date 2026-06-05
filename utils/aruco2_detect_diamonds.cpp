@@ -94,7 +94,7 @@ int main(int argc, char** argv) {
         if (image.empty()) { std::cerr << "  [warn] cannot read: " << path << "\n"; continue; }
 
         auto diamonds = cv::aruco2::detectDiamonds(image, dict);
-        cv::aruco2::drawDetected(image, diamonds, cv::Scalar(0, 255, 0), true);
+        cv::aruco2::drawDiamonds(image, diamonds, cv::Scalar(0, 255, 0), true);
 
         std::cout << fs::path(path).filename().string()
                   << " : " << diamonds.size() << " diamond(s) detected";

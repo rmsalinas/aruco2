@@ -6,7 +6,7 @@ A proposed replacement for the ArUco module in OpenCV 5, by the original ArUco a
 
 - **6.5× faster** detection engine based on [ArUco Nano](https://github.com/rmsalinas/aruco_nano)
 - **Up to 2.7× faster** dictionary identification via O(1) hash-map lookup
-- **Simpler API** — one function call, results in a single `vector<Marker>` (no parallel vectors)
+- **Simpler API** — one function call, results in a single `vector<FiducialMarker>` (no parallel vectors)
 - **Single public header** — `#include "aruco2.hpp"` is all you need; no extra headers to hunt down
 - **Safer defaults** — `errorCorrectionRate=0` instead of the legacy 0.6 that may causes false positives
 - **Multi-dictionary** detection in one pass
@@ -40,7 +40,7 @@ With `aruco2` the same task is a single line:
 
 ```cpp
 // aruco2 — detect and iterate
-for (auto &marker : cv::aruco2::detectMarkers(image))
+for (auto &marker : cv::aruco2::detectFiducialMarkers(image))
     std::cout << "id=" << marker.id << " corner0=" << marker.corners[0] << "\n";
 ```
 
@@ -50,37 +50,37 @@ for (auto &marker : cv::aruco2::detectMarkers(image))
 
 | | Current OpenCV aruco | aruco2 |
 |---|---|---|
-| Entry point | `ArucoDetector` class instance | free function `detectMarkers()` |
+| Entry point | `ArucoDetector` class instance | free function `detectFiducialMarkers()` |
 | Public API surface | multiple headers | single `aruco2.hpp` |
-| Result type | two parallel vectors (`corners`, `ids`) | `vector<Marker>` — id and corners travel together |
-| Multi-dictionary | not supported in one call | `detectMarkers(image, {DICT_A, DICT_B})` |
+| Result type | two parallel vectors (`corners`, `ids`) | `vector<FiducialMarker>` — id and corners travel together |
+| Multi-dictionary | not supported in one call | `detectFiducialMarkers(image, {DICT_A, DICT_B})` |
 | Default error correction | 0.6 (may cause false positives) | 0 (strict — raise only when needed) |
 | Board design | markers on half the squares | ChArUco2: markers on every square |
-| Diamond | separate concept using corner lists | first-class `Diamond` type with `vector<Marker>` |
+| Diamond | separate concept using corner lists | first-class `Diamond` type with `vector<FiducialMarker>` |
 | Fractal markers | not supported | first-class `FractalMarker` type — nested design, many more pose corners |
-| Python result | separate lists | `markers = cv.aruco2.detectMarkers(image)` |
+| Python result | separate lists | `markers = cv.aruco2.detectFiducialMarkers(image)` |
 
 ---
 
 ## Data types
 
 ```cpp
-struct Marker {
+struct FiducialMarker {
     std::vector<cv::Point2f> corners; // 4 corners, clockwise from top-left
     int id = -1;
-    DictionaryType dict;
+    DictionaryType dictionary;
 };
 
-struct Board {
+struct GridBoard {
     cv::Size gridSize;              // columns × rows
-    DictionaryType dict;
-    std::vector<Marker> markers;    // detected markers (subset when partially occluded)
+    DictionaryType dictionary;
+    std::vector<FiducialMarker> markers;    // detected markers (subset when partially occluded)
 };
 
 struct Diamond {
     cv::Vec4i id;                   // ids of the 4 constituent markers (clockwise from top-left)
-    DictionaryType dict;
-    std::vector<Marker> markers;    // the 4 detected markers forming the diamond
+    DictionaryType dictionary;
+    std::vector<FiducialMarker> markers;    // the 4 detected markers forming the diamond
 };
 
 struct FractalMarker {
@@ -96,22 +96,22 @@ struct FractalMarker {
 
 | Function | Description |
 |---|---|
-| `generateMarkerImage(img, dict, id)` | render a single marker to an image |
-| `generateBoardImage(img, size, dict)` | render a grid board to an image |
-| `generateDiamondImage(img, dict, ids)` | render a diamond (2×2 block) to an image |
-| `generateFractalImage(img, ftype)` | render a fractal marker to an image |
-| `detectMarkers(image, dict)` → `vector<Marker>` | find markers in an image |
-| `detectMarkers(image, {dict, …})` → `vector<Marker>` | find markers across multiple dictionaries |
-| `detectBoard(image, size, dict, board)` → `bool` | find a grid board |
-| `detectDiamonds(image, dict)` → `vector<Diamond>` | find diamond markers |
+| `getFiducialMarkerImage(img, dictionary, id)` | render a single marker to an image |
+| `getGridBoardImage(img, boardSize, dictionary)` | render a grid board to an image |
+| `getDiamondImage(img, dictionary, ids)` | render a diamond (2×2 block) to an image |
+| `getFractalMarkerImage(img, ftype)` | render a fractal marker to an image |
+| `detectFiducialMarkers(image, dictionary)` → `vector<FiducialMarker>` | find markers in an image |
+| `detectFiducialMarkers(image, {dictionary, …})` → `vector<FiducialMarker>` | find markers across multiple dictionaries |
+| `detectGridBoard(image, gridSize, dictionary, board)` → `bool` | find a grid board |
+| `detectDiamonds(image, dictionary)` → `vector<Diamond>` | find diamond markers |
 | `detectFractals(image, ftype)` → `vector<FractalMarker>` | find fractal markers |
-| `drawDetected(image, markers)` | draw marker outlines and ids |
-| `drawDetected(image, board)` | draw detected board corners |
-| `drawDetected(image, diamonds)` | draw diamond outlines and ids |
-| `drawDetected(image, fractals)` | draw fractal marker outlines, ids, and all matched image points (circles) |
+| `drawFiducialMarkers(image, markers)` | draw marker outlines and ids |
+| `drawGridBoard(image, board)` | draw detected board corners |
+| `drawDiamonds(image, diamonds)` | draw diamond outlines and ids |
+| `drawFractals(image, fractals)` | draw fractal marker outlines, ids, and all matched image points (circles) |
 | `drawAxis(image, cameraMatrix, distCoeffs, rvec, tvec, length)` | draw XYZ coordinate axes from a solvePnP result (X red, Y green, Z blue) |
-| `getSolvePnpPoints(marker, objPts, imgPts)` | extract solvePnP inputs for a marker |
-| `getSolvePnpPoints(board, objPts, imgPts)` | extract solvePnP inputs for a board |
+| `getSolvePnpPoints(marker, objPts, imgPts)` | extract solvePnP inputs for a fiducial marker |
+| `getSolvePnpPoints(board, objPts, imgPts)` | extract solvePnP inputs for a grid board |
 | `getSolvePnpPoints(diamond, objPts, imgPts)` | extract solvePnP inputs for a diamond |
 | `getSolvePnpPoints(fractal, objPts, imgPts)` | extract solvePnP inputs for a fractal marker |
 
@@ -128,7 +128,7 @@ Generate → Detect → Draw → Pose: four verbs, four target types, one consis
 
 cv::Mat image = cv::imread("scene.jpg");
 
-auto markers = cv::aruco2::detectMarkers(image);  // default: DICT_ARUCO_MIP_36h12
+auto markers = cv::aruco2::detectFiducialMarkers(image);  // default: DICT_ARUCO_MIP_36h12
 
 for (const auto &m : markers)
     std::cout << "id=" << m.id << " corner0=" << m.corners[0] << "\n";
@@ -137,7 +137,7 @@ for (const auto &m : markers)
 Pass a different dictionary as the second argument:
 
 ```cpp
-auto markers = cv::aruco2::detectMarkers(image, cv::aruco2::DICT_6X6_250);
+auto markers = cv::aruco2::detectFiducialMarkers(image, cv::aruco2::DICT_6X6_250);
 ```
 
 ---
@@ -147,10 +147,10 @@ auto markers = cv::aruco2::detectMarkers(image, cv::aruco2::DICT_6X6_250);
 ```cpp
 using namespace cv::aruco2;
 
-auto markers = detectMarkers(image, {DICT_6X6_250, DICT_APRILTAG_36h11});
+auto markers = detectFiducialMarkers(image, {DICT_6X6_250, DICT_APRILTAG_36h11});
 
 for (const auto &m : markers) {
-    std::string dictName = (m.dict == DICT_6X6_250) ? "aruco" : "apriltag";
+    std::string dictName = (m.dictionary == DICT_6X6_250) ? "aruco" : "apriltag";
     std::cout << dictName << " id=" << m.id << "\n";
 }
 ```
@@ -162,9 +162,9 @@ Each candidate is matched against all dictionaries in a single pass and carries 
 ### Draw detected markers
 
 ```cpp
-auto markers = cv::aruco2::detectMarkers(image);
-cv::aruco2::drawDetected(image, markers);                          // green border
-cv::aruco2::drawDetected(image, markers, cv::Scalar(255, 0, 0));   // blue border
+auto markers = cv::aruco2::detectFiducialMarkers(image);
+cv::aruco2::drawFiducialMarkers(image, markers);                          // green border
+cv::aruco2::drawFiducialMarkers(image, markers, cv::Scalar(255, 0, 0));   // blue border
 cv::imshow("markers", image);
 ```
 
@@ -176,7 +176,7 @@ Each marker is drawn with a coloured outline, the id at its centre, and a dot on
 
 ```cpp
 cv::Mat markerImg;
-cv::aruco2::generateMarkerImage(markerImg, cv::aruco2::DICT_6X6_250, 42);
+cv::aruco2::getFiducialMarkerImage(markerImg, cv::aruco2::DICT_6X6_250, 42);
 cv::imwrite("marker_42.png", markerImg);
 ```
 
@@ -188,7 +188,7 @@ The optional fourth argument controls bit size in pixels (default 20). A white o
 
 ```cpp
 cv::Mat diamondImg;
-cv::aruco2::generateDiamondImage(diamondImg, cv::aruco2::DICT_6X6_250, {10, 11, 12, 13});
+cv::aruco2::getDiamondImage(diamondImg, cv::aruco2::DICT_6X6_250, {10, 11, 12, 13});
 cv::imwrite("diamond.png", diamondImg);
 ```
 
@@ -205,7 +205,7 @@ Pass it directly — no manual scaling needed:
 ```cpp
 cv::Mat cameraMatrix, distCoeffs; // from calibration
 
-for (const auto &m : cv::aruco2::detectMarkers(image)) {
+for (const auto &m : cv::aruco2::detectFiducialMarkers(image)) {
     cv::Mat imgPts, objPts, rvec, tvec;
     cv::aruco2::getSolvePnpPoints(m, objPts, imgPts, 0.05f); // 5 cm marker
     cv::solvePnP(objPts, imgPts, cameraMatrix, distCoeffs, rvec, tvec);
@@ -235,8 +235,8 @@ Coordinate conventions (all target types share the same handedness):
 
 | Target | Origin | X | Y | Z |
 |---|---|---|---|---|
-| Marker | marker centre | → right | ↑ up | out of plane toward camera |
-| Board | top-left corner | → right | ↑ up | out of plane toward camera |
+| FiducialMarker | marker centre | → right | ↑ up | out of plane toward camera |
+| GridBoard | top-left corner | → right | ↑ up | out of plane toward camera |
 | Diamond | diamond centre | → right | ↑ up | out of plane toward camera |
 | Fractal | marker centre | → right | ↑ up | out of plane toward camera |
 
@@ -244,23 +244,23 @@ Coordinate conventions (all target types share the same handedness):
 
 ### Board generation and detection
 
-Boards follow the [ChArUco2](https://github.com/rmsalinas/charuco2) design: every square carries a marker — standard markers on black squares and inverted markers on white squares — doubling the marker density compared to standard ChArUco.
+Grid boards follow the [ChArUco2](https://github.com/rmsalinas/charuco2) design: every square carries a marker — standard markers on black squares and inverted markers on white squares — doubling the marker density compared to standard ChArUco.
 
 ```cpp
 // Generate a 4×3 board image
 cv::Mat boardImg;
-cv::aruco2::generateBoardImage(boardImg, cv::Size(4, 3), cv::aruco2::DICT_6X6_250);
+cv::aruco2::getGridBoardImage(boardImg, cv::Size(4, 3), cv::aruco2::DICT_6X6_250);
 cv::imwrite("board.png", boardImg);
 
 // Detect the board
-cv::aruco2::Board board;
-bool found = cv::aruco2::detectBoard(image, cv::Size(4, 3),
+cv::aruco2::GridBoard board;
+bool found = cv::aruco2::detectGridBoard(image, cv::Size(4, 3),
                                      cv::aruco2::DICT_6X6_250, board);
 if (found) {
     std::cout << "Detected " << board.markers.size() << " of 12 markers\n";
 
     // Draw detected corners
-    cv::aruco2::drawDetected(image, board);
+    cv::aruco2::drawGridBoard(image, board);
 
     // Pose estimation — uses all detected board corners, robust to partial occlusion
     cv::Mat imgPts, objPts, rvec, tvec;
@@ -272,7 +272,7 @@ if (found) {
 In Python:
 
 ```python
-found, board = cv.aruco2.detectBoard(image, (4, 3), cv.aruco2.DICT_6X6_250)
+found, board = cv.aruco2.detectGridBoard(image, (4, 3), cv.aruco2.DICT_6X6_250)
 ```
 
 ---
@@ -285,7 +285,7 @@ A diamond is a 2×2 block of markers.  Its identity is the combination of the fo
 auto diamonds = cv::aruco2::detectDiamonds(image, cv::aruco2::DICT_6X6_250);
 
 // Draw detected diamonds
-cv::aruco2::drawDetected(image, diamonds);
+cv::aruco2::drawDiamonds(image, diamonds);
 
 for (const auto &d : diamonds) {
     std::cout << "Diamond ids: "
@@ -311,7 +311,7 @@ params.errorCorrectionRate         = 0.5;  // tolerate some bit errors
 params.maxErroneousBitsInBorderRate = 0.05; // tolerate slight border damage
 params.detectInvertedMarker        = true;  // white markers on black background
 
-auto markers = cv::aruco2::detectMarkers(image, cv::aruco2::DICT_6X6_250, params);
+auto markers = cv::aruco2::detectFiducialMarkers(image, cv::aruco2::DICT_6X6_250, params);
 ```
 
 ---
@@ -325,17 +325,17 @@ accuracy and robustness to partial occlusion.
 ```cpp
 // Generate a FRACTAL_3L_6 image (3 nesting levels)
 cv::Mat fractalImg;
-cv::aruco2::generateFractalImage(fractalImg, cv::aruco2::FRACTAL_3L_6);
+cv::aruco2::getFractalMarkerImage(fractalImg, cv::aruco2::FRACTAL_3L_6);
 cv::imwrite("fractal.png", fractalImg);
 
 // Detect fractal markers
 auto fractals = cv::aruco2::detectFractals(image, cv::aruco2::FRACTAL_3L_6);
 
 // Draw results — outline, id, and all matched image points (default)
-cv::aruco2::drawDetected(image, fractals);
+cv::aruco2::drawFractals(image, fractals);
 
 // Outline and id only, no image points
-// cv::aruco2::drawDetected(image, fractals, cv::Scalar(0,255,0), false);
+// cv::aruco2::drawFractals(image, fractals, cv::Scalar(0,255,0), false);
 
 for (const auto &f : fractals)
     std::cout << "id=" << f.id << " corner0=" << f.corners[0] << "\n";
@@ -444,14 +444,14 @@ cmake --build build
 
 | Feature | Status |
 |---|---|
-| Marker detection | done |
+| Fiducial marker detection | done |
 | Multi-dictionary detection | done |
-| Draw detected markers | done |
-| Generate marker images | done |
-| Generate board images | done |
+| Draw detected fiducial markers | done |
+| Generate fiducial marker images | done |
+| Generate grid board images | done |
 | Generate diamond images | done |
-| Board detection | done |
-| Draw detected board | done |
+| Grid board detection | done |
+| Draw detected grid board | done |
 | Diamond detection | done |
 | Draw detected diamonds | done |
 | Pose estimation — single marker | done |
