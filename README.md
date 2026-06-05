@@ -2,7 +2,7 @@
 
 <img src="types.jpg" width="60%"/>
 
-A proposed replacement for the ArUco module in OpenCV, by the original ArUco author.
+A proposed replacement for the ArUco module in OpenCV (fully compatible and compiling with both OpenCV 5 and OpenCV 4), by the original ArUco author.
 
 - **6.5× faster** detection engine based on [ArUco Nano](https://github.com/rmsalinas/aruco_nano)
 - **Up to 2.7× faster** dictionary identification via O(1) hash-map lookup
@@ -431,7 +431,7 @@ Key advantages over standard OpenCV ChArUco:
 
 ## Building
 
-Requires OpenCV 4 or 5.
+This project compiles with both **OpenCV 5** and **OpenCV 4**.
 
 ```bash
 cmake -B build -DCMAKE_BUILD_TYPE=Release
