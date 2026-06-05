@@ -1,8 +1,8 @@
-# aruco2 — A Simpler ArUco for OpenCV 5
+# aruco2 — A Simpler ArUco for OpenCV 
 
 <img src="types.jpg" width="60%"/>
 
-A proposed replacement for the ArUco module in OpenCV 5, by the original ArUco author.
+A proposed replacement for the ArUco module in OpenCV, by the original ArUco author.
 
 - **6.5× faster** detection engine based on [ArUco Nano](https://github.com/rmsalinas/aruco_nano)
 - **Up to 2.7× faster** dictionary identification via O(1) hash-map lookup
