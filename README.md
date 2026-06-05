@@ -2,7 +2,7 @@
 
 <img src="types.jpg" width="60%"/>
 
-A proposed replacement for the ArUco module in OpenCV (fully compatible and compiling with both OpenCV 5 and OpenCV 4), by the original ArUco author.
+A proposed replacement for the ArUco module in OpenCV (fully compatible and compiling with both OpenCV 5 and OpenCV 4), by the original ArUco author. This repository serves as the standalone version of the implementation proposed in [OpenCV PR #29063](https://github.com/opencv/opencv/pull/29063) before it is accepted (if it ever is) in the official OpenCV.
 
 - **6.5× faster** detection engine based on [ArUco Nano](https://github.com/rmsalinas/aruco_nano)
 - **Up to 2.7× faster** dictionary identification via O(1) hash-map lookup
