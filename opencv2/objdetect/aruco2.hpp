@@ -42,7 +42,10 @@ enum DictionaryType {
     /** @brief 6x6 bits, minimum hamming distance between any two codes = 12, 250 codes.
      * See @cite garrido2016generation for details.
      */
-    DICT_ARUCO_MIP_36h12
+    DICT_ARUCO_MIP_36h12,
+    /** @brief ALVAR dictionaries. */
+    DICT_ALVAR_5X5_256,     ///< 5x5 bits, minimum hamming distance between any two codes = 4, 256 codes (ALVAR IDs 0-255)
+    DICT_ALVAR_7X7_1000     ///< 7x7 bits, minimum hamming distance between any two codes = 4, 1000 codes (ALVAR IDs 256-1255)
 };
 
 /** @brief Detection parameters for detectFiducialMarkers() and detectGridBoard().

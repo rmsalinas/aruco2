@@ -25,7 +25,7 @@ find_package(OpenCV REQUIRED)
 include_directories(${OpenCV_INCLUDE_DIRS})
 include_directories(src)
 include_directories(opencv2/objdetect)
-SET(SRCARUCO2  src/aruco2.cpp src/aruco_dictionary.hpp src/aruco_dictionary.cpp src/aruco2_fractal.cpp)
+SET(SRCARUCO2  opencv2/objdetect/aruco2.hpp src/aruco2.cpp src/aruco_dictionary.hpp src/aruco_dictionary.cpp src/aruco2_fractal.cpp)
 
 # ---------------------------------------------------------------------------
 # 5. Compiler warnings — pedantic, treat warnings as errors
