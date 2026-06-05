@@ -142,7 +142,7 @@ std::vector<FiducialMarker>  MarkerDetector::detect(const cv::Mat &img,   const 
     for(size_t di=0;di<dictionaries.size();di++){
         Dictionary dictInstance = getPredefinedDictionary(dictionaries[di]);
         std::vector<FiducialMarker> currDirMarkerDetected;
-        cv::Mat bits(dictInstance.markerSize+2,dictInstance.markerSize+2,CV_8UC1),bitadaptive(dictInstance.markerSize+2,dictInstance.markerSize+2,CV_8UC1);
+        cv::Mat bits(dictInstance.markerSize+2*params.markerBorderBits,dictInstance.markerSize+2*params.markerBorderBits,CV_8UC1),bitadaptive(dictInstance.markerSize+2*params.markerBorderBits,dictInstance.markerSize+2*params.markerBorderBits,CV_8UC1);
 
         for(auto it=candidatesOut->begin();it!=candidatesOut->end();){
             auto marker=*it;
