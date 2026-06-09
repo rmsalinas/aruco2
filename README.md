@@ -246,6 +246,9 @@ Coordinate conventions (all target types share the same handedness):
 
 Grid boards follow the [ChArUco2](https://github.com/rmsalinas/charuco2) design: every square carries a marker — standard markers on black squares and inverted markers on white squares — doubling the marker density compared to standard ChArUco.
 
+> [!TIP]
+> A pre-generated board image is provided in the repository root as [board9x5.png](board9x5.png) (`DICT_ARUCO_MIP_36h12`, 9×5 grid). You can print or use this file directly for testing without having to generate it yourself.
+
 ```cpp
 // Generate a 4×3 board image
 cv::Mat boardImg;
