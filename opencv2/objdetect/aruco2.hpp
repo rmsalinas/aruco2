@@ -45,7 +45,10 @@ enum DictionaryType {
     DICT_ARUCO_MIP_36h12,
     /** @brief ALVAR dictionaries. */
     DICT_ALVAR_5X5_256,     ///< 5x5 bits, minimum hamming distance between any two codes = 4, 256 codes (ALVAR IDs 0-255)
-    DICT_ALVAR_7X7_1000     ///< 7x7 bits, minimum hamming distance between any two codes = 4, 1000 codes (ALVAR IDs 256-1255)
+    DICT_ALVAR_7X7_1000,     ///< 7x7 bits, minimum hamming distance between any two codes = 4, 1000 codes (ALVAR IDs 256-1255)
+
+    /** @brief RArUco dictionaries. */
+    DICT_RARUCO_16h4///< 4x4 bits, minimum hamming distance between any two codes = 4, 5 codes
 };
 
 /** @brief Detection parameters for detectFiducialMarkers() and detectGridBoard().
@@ -133,6 +136,12 @@ struct CV_EXPORTS_W_SIMPLE DetectionParameters {
      * Default: false (standard black-on-white markers).
      */
     CV_PROP_RW bool detectInvertedMarker = false;
+
+    /** @brief Indicates whether instead of computing the bit value based only on its center,
+     *  it must analyze a set of points into the bit
+     */
+    CV_PROP_RW bool gridBitSampling = false;
+
 };
 
 
@@ -556,6 +565,23 @@ CV_EXPORTS_W void drawFractals(InputOutputArray image, const std::vector<cv::aru
 CV_EXPORTS_W void getSolvePnpPoints(const cv::aruco2::FractalMarker &fractal, OutputArray objPoints,
                                OutputArray imgPoints, float markerSize = 1.f);
 
+
+
+/** @brief Detect RArUco fiducial markers in an image.
+ *
+ * @param image        input image (grayscale or BGR)
+ * @param dictionary   dictionary to search; default is DICT_ARUCO_MIP_36h12
+ * @param detectorParams  detection tuning parameters
+ * @return             vector of detected FiducialMarker objects; empty if none found
+ *
+
+ *
+ * The implementation is based on the
+ *
+
+ */
+CV_EXPORTS_W std::vector<cv::aruco2::FiducialMarker> detectRArucoMarkers(InputArray image, cv::aruco2::DictionaryType dictionary = cv::aruco2::DICT_RARUCO_16h4,
+                                                                           const cv::aruco2::DetectionParameters &detectorParams = {});
 //! @}
 
 } // namespace aruco2

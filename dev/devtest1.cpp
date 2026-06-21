@@ -11,33 +11,14 @@ namespace fs = std::filesystem;
 
 int main(int argc, char** argv) {
 
-    //generate an april tag image
-    for(int dict=0;dict<=cv::aruco2::DictionaryType::DICT_APRILTAG_36h11;dict++){
-        std::cout<<"dict="<<dict<<std::endl;
-        cv::Mat outImage;
-        cv::aruco2::DictionaryType dictType = static_cast<cv::aruco2::DictionaryType>(dict);
-        cv::aruco2::generateMarkerImage(outImage,dictType,0);
-        // //go invert color in rect 40,40,20,20
-        cv::imshow("AprilTag-before", outImage);
-        cv::Mat roi=outImage(cv::Rect(40,40,20,20));
-        cv::bitwise_not(roi,roi);
-        cv::imshow("AprilTag-after", outImage);
-
-
-        //rotate image 90 degs
-        cv::rotate(outImage,outImage,cv::ROTATE_90_CLOCKWISE);
-
-        auto markers= cv::aruco2::detectMarkers(outImage,dictType,{.errorCorrectionRate=0.6});
-
-        //make image bgr
-        cv::cvtColor(outImage,outImage,cv::COLOR_GRAY2BGR);
-        //draw
-        for(auto m:markers)
-            cv::aruco2::drawDetected(outImage,{m});
-        //show image
-        cv::imshow("AprilTag", outImage);
-        //wait for key press
-        std::cout<<"dict="<<dict<<" done"<<std::endl;
-        cv::waitKey(0);
-    }
+    //open image and detect Raruco
+    cv::Mat image=cv::imread(argv[1]);
+    auto raruco=cv::aruco2::detectRArucoMarkers(image);
+    std::cout<<"Detected "<<raruco.size()<<std::endl;
+    cv::aruco2::drawFiducialMarkers(image,raruco,cv::Scalar(255,255,0));
+    //resize image
+    int w=500;
+   // cv::resize(image,image,cv::Size(w, image.rows* w /image.cols));
+    cv::imshow("image",image);
+    cv::waitKey(0);
 }

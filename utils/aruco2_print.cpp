@@ -5,10 +5,10 @@
 using namespace std;
 int main(int argc,char **argv) {
     try{
-        if(argc!=3)throw std::runtime_error("Usage: type [m (marker)|d (diamond)|f (fractal)|b (boad)] out.png");
+        if(argc!=3)throw std::runtime_error("Usage: type [m (marker)|d (diamond)|f (fractal)|b (boad)| r (raruco)] out.png");
 
         std::string type= argv[1];
-        if(type!="m" && type!="d" && type!="f" && type!="b")throw std::runtime_error("Usage: type [m (marker)|d (diamond)|f (fractal)|b (boad)] out.png");
+        if(type!="m" && type!="d" && type!="f" && type!="b"&& type!="r")throw std::runtime_error("Usage: type [m (marker)|d (diamond)|f (fractal)|b (boad)] out.png");
 
         cv::Mat outImage;
         if(type=="m"){
@@ -24,6 +24,10 @@ int main(int argc,char **argv) {
         }
         else if(type=="b"){
             cv::aruco2::getGridBoardImage(outImage,cv::Size(9,5), cv::aruco2::DICT_ARUCO_MIP_36h12);
+        }
+        else if(type=="r"){
+            int id=0;
+            cv::aruco2::getFiducialMarkerImage(outImage,cv::aruco2::DICT_RARUCO_16h4,id);
         }
         //save image
         cv::imwrite(argv[2],outImage);
