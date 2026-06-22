@@ -45,10 +45,7 @@ enum DictionaryType {
     DICT_ARUCO_MIP_36h12,
     /** @brief ALVAR dictionaries. */
     DICT_ALVAR_5X5_256,     ///< 5x5 bits, minimum hamming distance between any two codes = 4, 256 codes (ALVAR IDs 0-255)
-    DICT_ALVAR_7X7_1000,     ///< 7x7 bits, minimum hamming distance between any two codes = 4, 1000 codes (ALVAR IDs 256-1255)
-
-    /** @brief RArUco dictionaries. */
-    DICT_RARUCO_16h4///< 4x4 bits, minimum hamming distance between any two codes = 4, 5 codes
+    DICT_ALVAR_7X7_1000     ///< 7x7 bits, minimum hamming distance between any two codes = 4, 1000 codes (ALVAR IDs 256-1255)
 };
 
 /** @brief Detection parameters for detectFiducialMarkers() and detectGridBoard().
@@ -575,18 +572,18 @@ CV_EXPORTS_W void getSolvePnpPoints(const cv::aruco2::FractalMarker &fractal, Ou
  * @param bitSize  side length of one bit cell in pixels (default 20)
  * @snippet
  */
-CV_EXPORTS_W void getRArucoMarkerImage(OutputArray img, cv::aruco2::DictionaryType dictionary = cv::aruco2::DICT_RARUCO_16h4, int version=1, int id=0, int depth=2, int bitSize=5, bool externalBorder=true);
+CV_EXPORTS_W void getRArucoMarkerImage(OutputArray img, cv::aruco2::DictionaryType dictionary = cv::aruco2::DICT_APRILTAG_16h5,   int id=0, int depth=2, int bitSize=5, bool externalBorder=true);
 
 
 /** @brief Detect RArUco fiducial markers in an image.
  *
  * @param image        input image (grayscale or BGR)
- * @param dictionary   dictionary to search; default is DICT_RARUCO_16h4
+ * @param dictionary   dictionary to search; default is DICT_APRILTAG_16h5
  * @param detectorParams  detection tuning parameters
  * @return             vector of detected FiducialMarker objects; empty if none found
  *
  */
-CV_EXPORTS_W std::vector<cv::aruco2::FiducialMarker> detectRArucoMarkers(InputArray image, cv::aruco2::DictionaryType dictionary = cv::aruco2::DICT_RARUCO_16h4,int version=1,
+CV_EXPORTS_W std::vector<cv::aruco2::FiducialMarker> detectRArucoMarkers(InputArray image, cv::aruco2::DictionaryType dictionary = cv::aruco2::DICT_APRILTAG_16h5,
                                                                            const cv::aruco2::DetectionParameters &detectorParams = {});
 
 
