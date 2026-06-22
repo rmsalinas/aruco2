@@ -9,6 +9,7 @@
 #include "opencv2/flann.hpp"
 #include "opencv2/core/hal/intrin.hpp"
 #include "opencv2/core/utils/logger.hpp"
+#include <opencv2/highgui.hpp>
 
 //IF OpenCV 5
 #if CV_VERSION_MAJOR >= 5
@@ -794,34 +795,6 @@ std::vector<std::pair<int,int>> getMarkerCornersFromGlobalCornerID( int gid,cv::
     return result;
 }
 
-//returns the pixels where a marker has an island (a pixel of a different color surrounded by pixels of the same color)
-std::vector<cv::Point> getRarucoIslands(const cv::Mat &A) {
-    if (A.type() != CV_8UC1) {
-        throw std::invalid_argument("Matrix A must be of type CV_8UC1 (values 0 and 255).");
-    }
-    if (A.rows < 3 || A.cols < 3) {
-        return {};
-    }
-
-    std::vector<cv::Point> res;
-    for (int y = 1; y < A.rows - 1; ++y) {
-        for (int x = 1; x < A.cols - 1; ++x) {
-            uint8_t center = A.at<uint8_t>(y, x);
-            uint8_t opp = (center == 0) ? 255 : 0;
-
-            // Cardinal neighbors (N, S, W, E) must be opposite color
-            if (A.at<uint8_t>(y - 1, x) == opp &&
-                A.at<uint8_t>(y + 1, x) == opp &&
-                A.at<uint8_t>(y, x - 1) == opp &&
-                A.at<uint8_t>(y, x + 1) == opp) {
-
-                res.push_back({x,y});
-            }
-        }
-    }
-    return res;
-}
-
 }
 
 namespace cv {
@@ -1363,23 +1336,27 @@ void getGridBoardImage(OutputArray img, Size bSize, DictionaryType dictionary,
        return  detectFiducialMarkers(  image,dictionary,params);
 
    }
-
-   void getRArucoMarkerImage(OutputArray img, cv::aruco2::DictionaryType dictionary , int id,int depth, int bitSize, bool externalBorder){
+   void getRArucoMarkerImage(OutputArray img, cv::aruco2::DictionaryType dictionary , int id,int depth, int bitSize ,int innerBorders, bool externalBorder){
        CV_Assert(depth>=1);
+       CV_Assert(innerBorders>=1);
 
 
        //first, create the canonical image
        std::vector<cv::Mat> canonicalImage(depth);
        getFiducialMarkerImage(canonicalImage[0],dictionary,id,1,true);
-       //determine the positions where to insert the markers recursively
-       auto islands=getRarucoIslands(canonicalImage[0]);
-       CV_Assert(!islands.empty());
+
+       int ntr=canonicalImage[0].rows+2*(innerBorders-1);
+       int ntc=canonicalImage[0].cols+2*(innerBorders-1);
+       cv::Mat bordered (ntr,ntc,canonicalImage[0].type(),cv::Scalar(255));
+       cv::Mat roi=bordered(cv::Rect(innerBorders-1,innerBorders-1,canonicalImage[0].cols,canonicalImage[0].rows));
+       canonicalImage[0].copyTo(roi);
+       canonicalImage[0]=bordered;
 
        for(int d=1;d<depth;d++){
            cv::resize(canonicalImage[0],canonicalImage[d], {canonicalImage[d-1].cols*canonicalImage[0].cols,canonicalImage[d-1].rows*canonicalImage[0].rows},0,0,cv::INTER_NEAREST);
            //lets insert the markers in the islands
-           for(int r=2;r<canonicalImage[0].rows-2;r++)
-               for(int c=2;c<canonicalImage[0].cols-2;c++){
+           for(int r=1+innerBorders;r<canonicalImage[0].rows-1-innerBorders;r++)
+               for(int c=1+innerBorders;c<canonicalImage[0].cols-1-innerBorders;c++){
                    int x=c*canonicalImage[d-1].cols;
                    int y=r*canonicalImage[d-1].rows;
                    //copy the previous image into the island
@@ -1391,25 +1368,15 @@ void getGridBoardImage(OutputArray img, Size bSize, DictionaryType dictionary,
                    imToCopy.copyTo(roi);
 
                }
-
-           // for(auto p:islands){
-           //     int x=p.x*canonicalImage[d-1].cols;
-           //     int y=p.y*canonicalImage[d-1].rows;
-           //     //copy the previous image into the island
-           //     cv::Mat roi=canonicalImage[d](cv::Rect(x,y,canonicalImage[d-1].cols,canonicalImage[d-1].rows));
-           //     cv::Mat imToCopy;
-           //     canonicalImage[d-1].copyTo(imToCopy);
-           //     if( canonicalImage[0].at<uchar>(p)==0)
-           //         imToCopy=255-imToCopy;
-           //     imToCopy.copyTo(roi);
-           // }
        }
 
        cv::Mat finalCanonical;
-
-       finalCanonical=canonicalImage.back();
-
-
+       //lets remove the extra external borders of the final canonical image
+       int bRowSize=canonicalImage.back().rows/canonicalImage[0].rows;
+       int bColSize=canonicalImage.back().cols/canonicalImage[0].cols;
+       int nRemoveBorder=innerBorders-int(externalBorder);
+       canonicalImage.back().rowRange(nRemoveBorder*bRowSize,canonicalImage.back().rows-nRemoveBorder*bRowSize).colRange(nRemoveBorder*bColSize,canonicalImage.back().cols-nRemoveBorder*bColSize).copyTo(finalCanonical);
+       //save
        cv::resize(finalCanonical,img, {finalCanonical.cols*bitSize,finalCanonical.rows*bitSize},0,0,cv::INTER_NEAREST);
 
 

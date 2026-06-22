@@ -572,7 +572,7 @@ CV_EXPORTS_W void getSolvePnpPoints(const cv::aruco2::FractalMarker &fractal, Ou
  * @param bitSize  side length of one bit cell in pixels (default 20)
  * @snippet
  */
-CV_EXPORTS_W void getRArucoMarkerImage(OutputArray img, cv::aruco2::DictionaryType dictionary = cv::aruco2::DICT_APRILTAG_16h5,   int id=0, int depth=2, int bitSize=5, bool externalBorder=true);
+CV_EXPORTS_W void getRArucoMarkerImage(OutputArray img, cv::aruco2::DictionaryType dictionary = cv::aruco2::DICT_APRILTAG_16h5,   int id=0, int depth=2, int bitSize=5,int innerBorders=2, bool externalBorder=true);
 
 
 /** @brief Detect RArUco fiducial markers in an image.
