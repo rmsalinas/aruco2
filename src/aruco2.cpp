@@ -195,7 +195,18 @@ std::vector<FiducialMarker>  MarkerDetector::detect(const cv::Mat &img,   const 
 
                 //now, analyze the inner code to see it if is a marker. If so, rotate to have the points properly sorted
                 int nrotations=0;
-                if(getMarkerId(bits,marker.id,nrotations,params,dictInstance)==0) continue;
+                // 1. Invert bits immediately if we are strictly in Mode 1
+                if (params.detectColorMode == 1) {
+                    bits = ~bits;
+                }
+                // 2. Perform the first check (covers Mode 0, Mode 1, and the first half of Mode 2)
+                if (getMarkerId(bits, marker.id, nrotations, params, dictInstance) == 0) {
+                    // 3. If the check fails and we aren't in Mode 2, skip to the next iteration
+                    if (params.detectColorMode != 2) continue;
+                    // 4. If we ARE in Mode 2, apply the fallback: invert and check one last time
+                    bits = ~bits;
+                    if (getMarkerId(bits, marker.id, nrotations, params, dictInstance) == 0) continue;
+                }
                 std::rotate(marker.corners.begin(),marker.corners.begin() + 4 - nrotations,marker.corners.end());
             }
             if(marker.id!=-1) {
@@ -276,10 +287,12 @@ std::vector<FiducialMarker>  MarkerDetector::detect(const cv::Mat &img,   const 
 int MarkerDetector:: getMarkerId(cv::Mat candidateBits, int &idx, int &nrotations, const DetectionParameters &params,Dictionary &dictionary){
     uint8_t typ=1;
 
-    if(params.detectInvertedMarker ) candidateBits=~candidateBits;
+
+
     // analyze border bits
     int maximumErrorsInBorder =int(dictionary.markerSize * dictionary.markerSize * params.maxErroneousBitsInBorderRate);
     int borderErrors =getBorderErrors(candidateBits, dictionary.markerSize, params.markerBorderBits);
+
     if(borderErrors > maximumErrorsInBorder) return 0; // border is wrong
     // take only inner bits
     cv::Mat onlyBits =candidateBits.rowRange(params.markerBorderBits,candidateBits.rows - params.markerBorderBits).colRange(params.markerBorderBits, candidateBits.cols - params.markerBorderBits);
@@ -288,6 +301,9 @@ int MarkerDetector:: getMarkerId(cv::Mat candidateBits, int &idx, int &nrotation
     if(!dictionary.identify(onlyBits, idx, nrotations, params.errorCorrectionRate))
         return 0;
     return typ;
+
+
+
 }
 /**
   * @brief Return number of erroneous bits in border, i.e. number of white bits in border.
@@ -1330,7 +1346,7 @@ void getGridBoardImage(OutputArray img, Size bSize, DictionaryType dictionary,
        cv::Mat(objectPoints).copyTo(objPoints);
        cv::Mat(imagePoints).copyTo(imgPoints);
    }
-   std::vector<cv::aruco2::FiducialMarker> detectRArucoMarkers(InputArray image, cv::aruco2::DictionaryType dictionary ,
+   std::vector<cv::aruco2::FiducialMarker> detectRArucoMarkers(InputArray image, cv::aruco2::DictionaryType dictionary ,int version,
                                                                const cv::aruco2::DetectionParameters &detectorParams ){
 
        CV_Assert(image.channels() == 1 || image.channels() == 3);
@@ -1339,54 +1355,98 @@ void getGridBoardImage(OutputArray img, Size bSize, DictionaryType dictionary,
        if(image.channels()==3)
            cvtColor(image, src_gray, cv::COLOR_BGR2GRAY);
        else src_gray=image.getMat();
-       DetectionParameters params;
-       params.gridBitSampling=true;
-       params.minSize=20;
-       return detectBWMarkers(src_gray,dictionary,params);
+
+       if(version==1){
+           DetectionParameters params;
+           params.gridBitSampling=true;
+           params.detectColorMode=2;
+           params.minSize=20;
+           return  detectFiducialMarkers(  image,dictionary,params);
+       }
+       else if(version==2){
+           DetectionParameters params;
+           params.gridBitSampling=true;
+           params.minSize=20;
+           return detectBWMarkers(src_gray,dictionary,params);
+       }
    }
 
-   void getRArucoMarkerImage(OutputArray img, cv::aruco2::DictionaryType dictionary ,int id,int depth, int bitSize, bool externalBorder){
+   void getRArucoMarkerImage(OutputArray img, cv::aruco2::DictionaryType dictionary , int version,int id,int depth, int bitSize, bool externalBorder){
        CV_Assert(depth>=1);
 
+       if(version==1){
+           //first, create the canonical image
+           std::vector<cv::Mat> canonicalImage(depth);
+           getFiducialMarkerImage(canonicalImage[0],dictionary,id,1,true);
+           //determine the positions where to insert the markers recursively
+           auto islands=getRarucoIslands(canonicalImage[0]);
+           CV_Assert(!islands.empty());
 
-       //first, create the canonical image
-       std::vector<cv::Mat> canonicalImage(depth);
-       getFiducialMarkerImage(canonicalImage[0],dictionary,id,1,false);
-       //determine the positions where to insert the markers recursively
-       auto islands=getRarucoIslands(canonicalImage[0]);
-       CV_Assert(!islands.empty());
+           for(int d=1;d<depth;d++){
+               cv::resize(canonicalImage[0],canonicalImage[d], {canonicalImage[d-1].cols*canonicalImage[0].cols,canonicalImage[d-1].rows*canonicalImage[0].rows},0,0,cv::INTER_NEAREST);
+               //lets insert the markers in the islands
+               for(auto p:islands){
+                   int x=p.x*canonicalImage[d-1].cols;
+                   int y=p.y*canonicalImage[d-1].rows;
+                   //copy the previous image into the island
+                   cv::Mat roi=canonicalImage[d](cv::Rect(x,y,canonicalImage[d-1].cols,canonicalImage[d-1].rows));
+                   cv::Mat imToCopy;
+                   canonicalImage[d-1].copyTo(imToCopy);
+                    if( canonicalImage[0].at<uchar>(p)==0)
+                        imToCopy=255-imToCopy;
 
-        for(int d=1;d<depth;d++){
-           cv::resize(canonicalImage[0],canonicalImage[d], {canonicalImage[d-1].cols*canonicalImage[0].cols,canonicalImage[d-1].rows*canonicalImage[0].rows},0,0,cv::INTER_NEAREST);
-            //lets insert the markers in the islands
-           for(auto p:islands){
-               int x=p.x*canonicalImage[d-1].cols;
-               int y=p.y*canonicalImage[d-1].rows;
-                //copy the previous image into the island
-               cv::Mat roi=canonicalImage[d](cv::Rect(x,y,canonicalImage[d-1].cols,canonicalImage[d-1].rows));
-               cv::Mat imToCopy;
-               canonicalImage[d-1].copyTo(imToCopy);
-               if( canonicalImage[0].at<uchar>(p)==255)
-                   imToCopy=255-imToCopy;
-
-               imToCopy.copyTo(roi);
+                   imToCopy.copyTo(roi);
+               }
            }
-        }
 
-        cv::Mat finalCanonical;
-        if(externalBorder){
-            //we should now add a white border. so, lets create a new image with a border
-            int bitColSize=canonicalImage.back().cols/canonicalImage[0].cols;
-            int bitRowSize=canonicalImage.back().rows/canonicalImage[0].rows;
-            finalCanonical=cv::Mat((canonicalImage[0].rows+2)*bitRowSize,(canonicalImage[0].cols+2)*bitColSize,CV_8UC1,cv::Scalar(255));
-            canonicalImage.back().copyTo(finalCanonical(cv::Rect(bitColSize,bitRowSize,canonicalImage.back().cols,canonicalImage.back().rows)));
-        }
-        else{
-            finalCanonical=canonicalImage.back();
-        }
+           cv::Mat finalCanonical;
 
-       cv::resize(finalCanonical,img, {finalCanonical.cols*bitSize,finalCanonical.rows*bitSize},0,0,cv::INTER_NEAREST);
+               finalCanonical=canonicalImage.back();
 
+
+           cv::resize(finalCanonical,img, {finalCanonical.cols*bitSize,finalCanonical.rows*bitSize},0,0,cv::INTER_NEAREST);
+
+       }
+       else  if(version==2){
+
+           //first, create the canonical image
+           std::vector<cv::Mat> canonicalImage(depth);
+           getFiducialMarkerImage(canonicalImage[0],dictionary,id,1,false);
+           //determine the positions where to insert the markers recursively
+           auto islands=getRarucoIslands(canonicalImage[0]);
+           CV_Assert(!islands.empty());
+
+           for(int d=1;d<depth;d++){
+               cv::resize(canonicalImage[0],canonicalImage[d], {canonicalImage[d-1].cols*canonicalImage[0].cols,canonicalImage[d-1].rows*canonicalImage[0].rows},0,0,cv::INTER_NEAREST);
+               //lets insert the markers in the islands
+               for(auto p:islands){
+                   int x=p.x*canonicalImage[d-1].cols;
+                   int y=p.y*canonicalImage[d-1].rows;
+                   //copy the previous image into the island
+                   cv::Mat roi=canonicalImage[d](cv::Rect(x,y,canonicalImage[d-1].cols,canonicalImage[d-1].rows));
+                   cv::Mat imToCopy;
+                   canonicalImage[d-1].copyTo(imToCopy);
+                   if( canonicalImage[0].at<uchar>(p)==255)
+                       imToCopy=255-imToCopy;
+
+                   imToCopy.copyTo(roi);
+               }
+           }
+
+           cv::Mat finalCanonical;
+           if(externalBorder){
+               //we should now add a white border. so, lets create a new image with a border
+               int bitColSize=canonicalImage.back().cols/canonicalImage[0].cols;
+               int bitRowSize=canonicalImage.back().rows/canonicalImage[0].rows;
+               finalCanonical=cv::Mat((canonicalImage[0].rows+2)*bitRowSize,(canonicalImage[0].cols+2)*bitColSize,CV_8UC1,cv::Scalar(255));
+               canonicalImage.back().copyTo(finalCanonical(cv::Rect(bitColSize,bitRowSize,canonicalImage.back().cols,canonicalImage.back().rows)));
+           }
+           else{
+               finalCanonical=canonicalImage.back();
+           }
+
+           cv::resize(finalCanonical,img, {finalCanonical.cols*bitSize,finalCanonical.rows*bitSize},0,0,cv::INTER_NEAREST);
+       }
 
    }
 

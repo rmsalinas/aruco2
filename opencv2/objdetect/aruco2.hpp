@@ -131,11 +131,11 @@ struct CV_EXPORTS_W_SIMPLE DetectionParameters {
      */
     CV_PROP_RW double maxErroneousBitsInBorderRate = 0;
 
-    /** @brief Set to true to detect markers printed white-on-black (inverted polarity).
+    /** @brief Set to decide whether to detect black-on-white (0), white-on-black (1) or both (2).
      *
      * Default: false (standard black-on-white markers).
      */
-    CV_PROP_RW bool detectInvertedMarker = false;
+    CV_PROP_RW int detectColorMode= 0;//0 black-on-white, 1 white-on-black , 2 both
 
     /** @brief Indicates whether instead of computing the bit value based only on its center,
      *  it must analyze a set of points into the bit
@@ -566,18 +566,6 @@ CV_EXPORTS_W void getSolvePnpPoints(const cv::aruco2::FractalMarker &fractal, Ou
                                OutputArray imgPoints, float markerSize = 1.f);
 
 
-
-/** @brief Detect RArUco fiducial markers in an image.
- *
- * @param image        input image (grayscale or BGR)
- * @param dictionary   dictionary to search; default is DICT_RARUCO_16h4
- * @param detectorParams  detection tuning parameters
- * @return             vector of detected FiducialMarker objects; empty if none found
- *
- */
-CV_EXPORTS_W std::vector<cv::aruco2::FiducialMarker> detectRArucoMarkers(InputArray image, cv::aruco2::DictionaryType dictionary = cv::aruco2::DICT_RARUCO_16h4,
-                                                                           const cv::aruco2::DetectionParameters &detectorParams = {});
-
 /** @brief Render a RArUco marker to a grayscale image.
  *
  *
@@ -587,7 +575,20 @@ CV_EXPORTS_W std::vector<cv::aruco2::FiducialMarker> detectRArucoMarkers(InputAr
  * @param bitSize  side length of one bit cell in pixels (default 20)
  * @snippet
  */
-CV_EXPORTS_W void getRArucoMarkerImage(OutputArray img, cv::aruco2::DictionaryType dictionary = cv::aruco2::DICT_RARUCO_16h4, int id=0, int depth=2, int bitSize=5, bool externalBorder=true);
+CV_EXPORTS_W void getRArucoMarkerImage(OutputArray img, cv::aruco2::DictionaryType dictionary = cv::aruco2::DICT_RARUCO_16h4, int version=1, int id=0, int depth=2, int bitSize=5, bool externalBorder=true);
+
+
+/** @brief Detect RArUco fiducial markers in an image.
+ *
+ * @param image        input image (grayscale or BGR)
+ * @param dictionary   dictionary to search; default is DICT_RARUCO_16h4
+ * @param detectorParams  detection tuning parameters
+ * @return             vector of detected FiducialMarker objects; empty if none found
+ *
+ */
+CV_EXPORTS_W std::vector<cv::aruco2::FiducialMarker> detectRArucoMarkers(InputArray image, cv::aruco2::DictionaryType dictionary = cv::aruco2::DICT_RARUCO_16h4,int version=1,
+                                                                           const cv::aruco2::DetectionParameters &detectorParams = {});
+
 
 //! @}
 
