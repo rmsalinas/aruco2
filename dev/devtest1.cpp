@@ -11,6 +11,10 @@ namespace fs = std::filesystem;
 
 int main(int argc, char** argv) {
 
+    cv::Mat marker;
+//    cv::aruco2::getRArucoMarkerImage(marker,cv::aruco2::DICT_RARUCO_16h4,0,3);
+
+//    cv::imwrite("image.png",marker);exit(0);
     //open image and detect Raruco
     cv::Mat image=cv::imread(argv[1]);
     auto raruco=cv::aruco2::detectRArucoMarkers(image);

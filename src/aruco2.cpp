@@ -10,7 +10,6 @@
 #include "opencv2/core/hal/intrin.hpp"
 #include "opencv2/core/utils/logger.hpp"
 
-#include "opencv2/highgui.hpp" //debug
 //IF OpenCV 5
 #if CV_VERSION_MAJOR >= 5
 #include <opencv2/3d.hpp>
@@ -18,8 +17,6 @@
 #elif CV_VERSION_MAJOR >= 4
 #include <opencv2/calib3d.hpp>
 #endif
-
-cv::Mat debug_img,debug_img_show;
 
 namespace {
 using namespace cv;
@@ -38,7 +35,6 @@ private:
     static std::vector<std::vector<cv::Point>> visitedAwareTracingContour(cv::Mat &padded_io, size_t minSize = 1,float maxRevisited=0.1) ;
     static int getBorderErrors(const cv::Mat &bits, int markerSize, int borderSize) ;
     static void thres255Adaptive(cv::Mat &in,cv::Mat &out,int off=2,int thres=5);
-    static bool areLinesInRealBorder(const Mat &im_grey, const std::vector<Point2f> &corners, float minDiff);
 };
 
 namespace _private {
@@ -85,52 +81,10 @@ int MarkerDetector::isInto(const std::vector<cv::Point2f> &a, const std::vector<
     // Default: Tie or no relative dominance
     return 0;
 }
-bool MarkerDetector::areLinesInRealBorder(const cv::Mat& im_grey, const std::vector<cv::Point2f>& corners, float minDiff){
-
-    for (int i = 0; i < 4; ++i) {
-        cv::Point2f p0 = corners[i];
-        cv::Point2f p1 = corners[(i + 1) % 4];
-        cv::Point2f v = p1 - p0;
-        float length = cv::norm(v);
-        if (length < 1e-3) return false;
-        cv::Point2f dir = v / length;
-
-        int numSamples = 5;
-        float step = length / numSamples;
-        float perpDist = 0.2f * step; // approximating 0.1  marker bit
-
-        cv::Point2f perp_in(-dir.y * perpDist, dir.x * perpDist);
-        cv::Point2f perp_out(dir.y * perpDist, -dir.x * perpDist);
-
-        float diffSum = 0;
-
-        for (int j = 0; j < numSamples; ++j) {
-            cv::Point2f pt = p0 + dir * ((j + 0.5f) * step);
-            cv::Point2f pt_out = pt + perp_out;
-            cv::Point2f pt_in = pt + perp_in;
-
-            float val_out = getSubpixelValue(im_grey, pt_out);
-            float val_in = getSubpixelValue(im_grey, pt_in);
-
-            //draw circle in debug image
-            cv::circle(debug_img, pt_out, 1, cv::Scalar(255,0,0), -1);
-            cv::circle(debug_img, pt_in, 1, cv::Scalar(0,0,255), -1);
-          //  cv::imshow("xx",debug_img);cv::waitKey(0);
-
-
-            diffSum += std::abs(val_out - val_in);
-        }
-        
-        float avgDiff = diffSum / numSamples;
-        if (avgDiff < minDiff) return false;
-    }
-    return true;
-}
 
 std::vector<FiducialMarker>  MarkerDetector::detect(const cv::Mat &img,   const std::vector<DictionaryType> dictionaries,const DetectionParameters &params,std::vector<FiducialMarker> *candidatesOut,cv::Mat ThresImIn){
 
-    cv::cvtColor(img,debug_img,cv::COLOR_GRAY2BGR);
-    bool debugIt=true;
+
 
 
     cv::Mat bwimage,thresImage;
@@ -183,9 +137,6 @@ std::vector<FiducialMarker>  MarkerDetector::detect(const cv::Mat &img,   const 
             marker.corners.emplace_back( cv::Point2f( float(approxCurve[j].x),float(approxCurve[j].y)));
         //sort corner in clockwise direction
         marker=sort(marker);
-
-//        //analyze if the points of the border are in a real border, or are caused by large box filters
-//        if(params.gridBitSampling && !areLinesInRealBorder(thresImage,marker.corners,20)) continue;
         candidatesOut->push_back(marker);
     }
 
@@ -218,18 +169,13 @@ std::vector<FiducialMarker>  MarkerDetector::detect(const cv::Mat &img,   const 
                             double intrabitIncR=1./double(bits.rows*bits.rows);
                             double intrabitIncC=1./double(bits.cols*bits.cols);
                             double offset=intrabitIncC/2.;
-                           // std::cout<<"R="<<r<<" c="<<c<<std::endl;
+
                             for (int sr = 0; sr < bits.rows; sr++) {
                                 for (int sc = 0; sc < bits.cols; sc++) {
-
                                     // Only proceed if it is a border element (first row, last row, first col, or last col)
                                     if (sr == 0 || sr == bits.rows - 1 || sc == 0 || sc == bits.cols - 1) {
-                                        auto pix = hom(cv::Point2f( (float(c) / float(bits.cols)) + (0.5 + float(sc)) * intrabitIncR,
-                                                                   (float(r) / float(bits.rows)) + (0.5 + float(sr)) * intrabitIncC ));
+                                        auto pix = hom(cv::Point2f( (float(c) / float(bits.cols)) + (0.5 + float(sc)) * intrabitIncR,(float(r) / float(bits.rows)) + (0.5 + float(sr)) * intrabitIncC ));
                                         sum += getSubpixelValue(bwimage, pix);
-                                        if (debugIt && i==0) {
-                                            cv::circle(debug_img, pix, 2, {0, 255, 0}, 1, -1);
-                                        }
                                     }
                                 }
                             }
@@ -246,14 +192,7 @@ std::vector<FiducialMarker>  MarkerDetector::detect(const cv::Mat &img,   const 
                 else{
                     cv::threshold(bits,bits,0,255,cv::THRESH_OTSU);
                 }
-                if(i==0 && debugIt){
-                    for (int j = 0; j < 4; j++){
-                        cv::line(debug_img, cv::Point(marker.corners[j]), cv::Point(marker.corners[(j+1)%4]), cv::Scalar(0,0,255), 2);
-                    }
-                     std::cout<<bits<<std::endl;
-                    cv::resize(debug_img,debug_img_show,cv::Size(1920,1080));
-                    cv::imshow("debugimg",debug_img_show);cv::waitKey(0);
-                }
+
                 //now, analyze the inner code to see it if is a marker. If so, rotate to have the points properly sorted
                 int nrotations=0;
                 if(getMarkerId(bits,marker.id,nrotations,params,dictInstance)==0) continue;
@@ -572,7 +511,6 @@ std::vector<FiducialMarker> detectBWMarkers(cv::Mat &src_gray,DictionaryType dic
     int maxErodeIterations= std::max(2, int( (2.*src_gray.cols/2000.)+0.5));
      std::vector<std::vector<FiducialMarker>  > markers_blackv(maxErodeIterations);
     cv::Range range(1, maxErodeIterations);
-cv::setNumThreads(0);//debug
     cv::parallel_for_(range, [&](const cv::Range& r) {
         for(int i=r.start;i<r.end;i++){
             cv::Mat thres=thresImage.clone();
@@ -838,6 +776,34 @@ std::vector<std::pair<int,int>> getMarkerCornersFromGlobalCornerID( int gid,cv::
     if (id != -1) result.emplace_back(id, 3);
 
     return result;
+}
+
+//returns the pixels where a marker has an island (a pixel of a different color surrounded by pixels of the same color)
+std::vector<cv::Point> getRarucoIslands(const cv::Mat &A) {
+    if (A.type() != CV_8UC1) {
+        throw std::invalid_argument("Matrix A must be of type CV_8UC1 (values 0 and 255).");
+    }
+    if (A.rows < 3 || A.cols < 3) {
+        return {};
+    }
+
+    std::vector<cv::Point> res;
+    for (int y = 1; y < A.rows - 1; ++y) {
+        for (int x = 1; x < A.cols - 1; ++x) {
+            uint8_t center = A.at<uint8_t>(y, x);
+            uint8_t opp = (center == 0) ? 255 : 0;
+
+            // Cardinal neighbors (N, S, W, E) must be opposite color
+            if (A.at<uint8_t>(y - 1, x) == opp &&
+                A.at<uint8_t>(y + 1, x) == opp &&
+                A.at<uint8_t>(y, x - 1) == opp &&
+                A.at<uint8_t>(y, x + 1) == opp) {
+
+                res.push_back({x,y});
+            }
+        }
+    }
+    return res;
 }
 
 }
@@ -1378,5 +1344,51 @@ void getGridBoardImage(OutputArray img, Size bSize, DictionaryType dictionary,
        params.minSize=20;
        return detectBWMarkers(src_gray,dictionary,params);
    }
+
+   void getRArucoMarkerImage(OutputArray img, cv::aruco2::DictionaryType dictionary ,int id,int depth, int bitSize, bool externalBorder){
+       CV_Assert(depth>=1);
+
+
+       //first, create the canonical image
+       std::vector<cv::Mat> canonicalImage(depth);
+       getFiducialMarkerImage(canonicalImage[0],dictionary,id,1,false);
+       //determine the positions where to insert the markers recursively
+       auto islands=getRarucoIslands(canonicalImage[0]);
+       CV_Assert(!islands.empty());
+
+        for(int d=1;d<depth;d++){
+           cv::resize(canonicalImage[0],canonicalImage[d], {canonicalImage[d-1].cols*canonicalImage[0].cols,canonicalImage[d-1].rows*canonicalImage[0].rows},0,0,cv::INTER_NEAREST);
+            //lets insert the markers in the islands
+           for(auto p:islands){
+               int x=p.x*canonicalImage[d-1].cols;
+               int y=p.y*canonicalImage[d-1].rows;
+                //copy the previous image into the island
+               cv::Mat roi=canonicalImage[d](cv::Rect(x,y,canonicalImage[d-1].cols,canonicalImage[d-1].rows));
+               cv::Mat imToCopy;
+               canonicalImage[d-1].copyTo(imToCopy);
+               if( canonicalImage[0].at<uchar>(p)==255)
+                   imToCopy=255-imToCopy;
+
+               imToCopy.copyTo(roi);
+           }
+        }
+
+        cv::Mat finalCanonical;
+        if(externalBorder){
+            //we should now add a white border. so, lets create a new image with a border
+            int bitColSize=canonicalImage.back().cols/canonicalImage[0].cols;
+            int bitRowSize=canonicalImage.back().rows/canonicalImage[0].rows;
+            finalCanonical=cv::Mat((canonicalImage[0].rows+2)*bitRowSize,(canonicalImage[0].cols+2)*bitColSize,CV_8UC1,cv::Scalar(255));
+            canonicalImage.back().copyTo(finalCanonical(cv::Rect(bitColSize,bitRowSize,canonicalImage.back().cols,canonicalImage.back().rows)));
+        }
+        else{
+            finalCanonical=canonicalImage.back();
+        }
+
+       cv::resize(finalCanonical,img, {finalCanonical.cols*bitSize,finalCanonical.rows*bitSize},0,0,cv::INTER_NEAREST);
+
+
+   }
+
    } // namespace aruco2
    } // namespace cv

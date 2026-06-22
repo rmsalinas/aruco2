@@ -570,18 +570,25 @@ CV_EXPORTS_W void getSolvePnpPoints(const cv::aruco2::FractalMarker &fractal, Ou
 /** @brief Detect RArUco fiducial markers in an image.
  *
  * @param image        input image (grayscale or BGR)
- * @param dictionary   dictionary to search; default is DICT_ARUCO_MIP_36h12
+ * @param dictionary   dictionary to search; default is DICT_RARUCO_16h4
  * @param detectorParams  detection tuning parameters
  * @return             vector of detected FiducialMarker objects; empty if none found
  *
-
- *
- * The implementation is based on the
- *
-
  */
 CV_EXPORTS_W std::vector<cv::aruco2::FiducialMarker> detectRArucoMarkers(InputArray image, cv::aruco2::DictionaryType dictionary = cv::aruco2::DICT_RARUCO_16h4,
                                                                            const cv::aruco2::DetectionParameters &detectorParams = {});
+
+/** @brief Render a RArUco marker to a grayscale image.
+ *
+ *
+ * @param img      output CV_8UC1 image
+ * @param dictionary
+ * @param depth recursion level
+ * @param bitSize  side length of one bit cell in pixels (default 20)
+ * @snippet
+ */
+CV_EXPORTS_W void getRArucoMarkerImage(OutputArray img, cv::aruco2::DictionaryType dictionary = cv::aruco2::DICT_RARUCO_16h4, int id=0, int depth=2, int bitSize=5, bool externalBorder=true);
+
 //! @}
 
 } // namespace aruco2
