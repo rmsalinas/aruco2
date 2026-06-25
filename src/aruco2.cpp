@@ -1322,17 +1322,9 @@ void getGridBoardImage(OutputArray img, Size bSize, DictionaryType dictionary,
    std::vector<cv::aruco2::FiducialMarker> detectRArucoMarkers(InputArray image, cv::aruco2::DictionaryType dictionary ,
                                                                const cv::aruco2::DetectionParameters &detectorParams ){
 
-       CV_Assert(image.channels() == 1 || image.channels() == 3);
-       cv::Mat src_gray;
-       //obtain the gray image
-       if(image.channels()==3)
-           cvtColor(image, src_gray, cv::COLOR_BGR2GRAY);
-       else src_gray=image.getMat();
-
        DetectionParameters params;
        params.gridBitSampling=true;
        params.detectColorMode=2;
-       params.minSize=20;
        return  detectFiducialMarkers(  image,dictionary,params);
 
    }

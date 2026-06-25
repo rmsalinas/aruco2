@@ -27,8 +27,9 @@ int main(int argc,char **argv) {
         }
         else if(type=="r"){
             int id=0;
-            cv::aruco2::getFiducialMarkerImage(outImage,cv::aruco2::DICT_APRILTAG_16h5,id);
-        }
+            cv::aruco2::getRArucoMarkerImage(outImage,cv::aruco2::DICT_APRILTAG_16h5,0,3,5,2,1);
+
+         }
         //save image
         cv::imwrite(argv[2],outImage);
 

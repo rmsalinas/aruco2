@@ -60,6 +60,9 @@ target_link_libraries(aruco2_detect_diamonds PRIVATE ${OpenCV_LIBS})
 add_executable(aruco2_detect_fractal utils/aruco2_detect_fractal.cpp ${SRCARUCO2})
 target_link_libraries(aruco2_detect_fractal PRIVATE ${OpenCV_LIBS})
 
+add_executable(aruco2_detect_raruco utils/aruco2_detect_raruco.cpp ${SRCARUCO2})
+target_link_libraries(aruco2_detect_raruco PRIVATE ${OpenCV_LIBS})
+
 add_executable(aruco2_testdictspeedup aruco2_testdictspeedup.cpp ${SRCARUCO2})
 target_link_libraries(aruco2_testdictspeedup PRIVATE ${OpenCV_LIBS})
 
