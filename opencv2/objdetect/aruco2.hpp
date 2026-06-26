@@ -505,10 +505,11 @@ private:
  *
  * @param img      output CV_8UC1 image
  * @param ftype    fractal configuration (FRACTAL_2L_6 … FRACTAL_5L_6)
+ * @param id of the fractal. So far, fractal dictionaries have only one id.
  * @param bitSize  side length of one bit cell in pixels (default 20)
  * @snippet samples/cpp/tutorial_code/objdetect/aruco2/aruco2_fractals.cpp create_fractal
  */
-CV_EXPORTS_W void getFractalMarkerImage(OutputArray img, cv::aruco2::FractalType ftype, int bitSize=20);
+CV_EXPORTS_W void getFractalMarkerImage(OutputArray img, cv::aruco2::FractalType ftype, int id=0,int bitSize=20);
 
 /** @brief Detect fractal markers in an image.
  *
@@ -565,11 +566,12 @@ CV_EXPORTS_W void getSolvePnpPoints(const cv::aruco2::FractalMarker &fractal, Ou
 
 /** @brief Render a RArUco marker to a grayscale image.
  *
- *
- * @param img      output CV_8UC1 image
+ * @param img     output CV_8UC1 image
  * @param dictionary
  * @param depth recursion level
- * @param bitSize  side length of one bit cell in pixels (default 20)
+ * @param bitSize  side length of one bit cell in pixels
+ * @param innerBorders how many bits separates the inner marker from the border
+ * @param externalBorder if enables, draws the white border sourunding the most external marker
  * @snippet
  */
 CV_EXPORTS_W void getRArucoMarkerImage(OutputArray img, cv::aruco2::DictionaryType dictionary = cv::aruco2::DICT_APRILTAG_16h5,   int id=0, int depth=2, int bitSize=5,int innerBorders=2, bool externalBorder=true);
@@ -580,7 +582,7 @@ CV_EXPORTS_W void getRArucoMarkerImage(OutputArray img, cv::aruco2::DictionaryTy
  * @param image        input image (grayscale or BGR)
  * @param dictionary   dictionary to search; default is DICT_APRILTAG_16h5
  * @param detectorParams  detection tuning parameters
- * @return             vector of detected FiducialMarker objects; empty if none found
+ * @return             vector of detected markers; empty if none found
  *
  */
 CV_EXPORTS_W std::vector<cv::aruco2::FiducialMarker> detectRArucoMarkers(InputArray image, cv::aruco2::DictionaryType dictionary = cv::aruco2::DICT_APRILTAG_16h5,

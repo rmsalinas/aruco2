@@ -1322,9 +1322,9 @@ void getGridBoardImage(OutputArray img, Size bSize, DictionaryType dictionary,
    std::vector<cv::aruco2::FiducialMarker> detectRArucoMarkers(InputArray image, cv::aruco2::DictionaryType dictionary ,
                                                                const cv::aruco2::DetectionParameters &detectorParams ){
 
-       DetectionParameters params;
-       params.gridBitSampling=true;
-       params.detectColorMode=2;
+       DetectionParameters params(detectorParams);
+       params.gridBitSampling=true;//read the borders of the bit instead of the center
+       params.detectColorMode=2;//detects both bw and wb markers
        return  detectFiducialMarkers(  image,dictionary,params);
 
    }
