@@ -59,7 +59,7 @@ void processImage(const fs::path& inputPath, cv::aruco2::DictionaryType dict, bo
     auto end = std::chrono::high_resolution_clock::now();
     double elapsedMs = std::chrono::duration<double, std::milli>(end - start).count();
 
-    cv::aruco2::drawFiducialMarkers(image, markers, cv::Scalar(255, 255, 0));
+    cv::aruco2::drawFiducialMarkers(image, markers, cv::Scalar(255, 0, 0));
 
     std::cout << inputPath.filename().string() << " : " << markers.size()
               << " RAruco marker(s) detected (time: " << elapsedMs

@@ -841,7 +841,7 @@ void drawFiducialMarkers(InputOutputArray _image, const std::vector<FiducialMark
     Scalar cornerColor(255 - borderColor[0], borderColor[1], borderColor[2]);
     Scalar textColor  (255 - borderColor[0], 255 - borderColor[1], 255 - borderColor[2]);
 
-    int thickness= 0.5+ std::max(float(2),2 * float(image.cols)/float(1920.));//adjust thickness to image dimensions
+    int thickness= 0.5+ std::max(float(3),3 * float(image.cols)/float(1920.));//adjust thickness to image dimensions
     for (const auto &marker : markers) {
         if (marker.corners.size() != 4) continue;
         // draw 4 sides

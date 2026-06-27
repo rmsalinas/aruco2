@@ -11,18 +11,11 @@ namespace fs = std::filesystem;
 
 int main(int argc, char** argv) {
 
+    cv::Mat img=cv::imread(argv[1],cv::IMREAD_GRAYSCALE);
+    //apply adptive thresholding and save to file
     cv::Mat marker;
-    cv::aruco2::getRArucoMarkerImage(marker,cv::aruco2::DICT_APRILTAG_16h5,0,3,5,2,0);
+    cv::adaptiveThreshold(img,marker,255,cv::ADAPTIVE_THRESH_GAUSSIAN_C,cv::THRESH_BINARY,23,7);
+    //save
+    cv::imwrite("marker.jpg",marker);
 
- // cv::imwrite("image.png",marker);exit(0);
-    //open image and detect Raruco
-    cv::Mat image=cv::imread(argv[1]);
-    auto raruco=cv::aruco2::detectRArucoMarkers(image);
-    std::cout<<"Detected "<<raruco.size()<<std::endl;
-    cv::aruco2::drawFiducialMarkers(image,raruco,cv::Scalar(255,255,0));
-    //resize image
-    int w=1920;
-    cv::resize(image,image,cv::Size(w, image.rows* w /image.cols));
-    cv::imshow("image",image);
-    cv::waitKey(0);
 }
