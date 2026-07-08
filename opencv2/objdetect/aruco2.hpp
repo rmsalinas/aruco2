@@ -499,10 +499,11 @@ private:
  *
  * @param img      output CV_8UC1 image
  * @param ftype    fractal configuration (FRACTAL_2L_6 … FRACTAL_5L_6)
+ * @param id       if of the fractal being drawn
  * @param bitSize  side length of one bit cell in pixels (default 20)
  * @snippet samples/cpp/tutorial_code/objdetect/aruco2/aruco2_fractals.cpp create_fractal
  */
-CV_EXPORTS_W void getFractalMarkerImage(OutputArray img, cv::aruco2::FractalType ftype, int bitSize=20);
+CV_EXPORTS_W void getFractalMarkerImage(OutputArray img, cv::aruco2::FractalType ftype, int id=0,int bitSize=20);
 
 /** @brief Detect fractal markers in an image.
  *
