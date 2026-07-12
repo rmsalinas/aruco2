@@ -17,7 +17,7 @@ namespace fs = std::filesystem;
 
 int main(int argc, char** argv) {
     cv::CommandLineParser parser(argc, argv,
-        "{@path  |    | folder with images (jpg/png) }"
+        "{@path  |    | image or folder with images (jpg/png) }"
         "{dict   | 21 | dictionary id (21 = DICT_ARUCO_MIP_36h12) }"
         "{calib  |    | calibration YAML/XML produced by aruco2_camera_calibration }"
         "{ms     | 0.05| physical marker side length in metres (used for pose) }"
@@ -28,7 +28,7 @@ int main(int argc, char** argv) {
     if (parser.has("help")) { parser.printMessage(); return 0; }
     if (!parser.check())    { parser.printErrors();  return 1; }
 
-    std::string folder   = parser.get<std::string>("@path");
+    std::string path   = parser.get<std::string>("@path");
     std::string calibFile= parser.get<std::string>("calib");
     bool        show     = parser.get<bool>("show");
     std::string saveDir  = parser.get<std::string>("save");
@@ -37,7 +37,7 @@ int main(int argc, char** argv) {
     int   dictId = parser.get<int>("dict");
     float ms     = parser.get<float>("ms");
 
-    if (folder.empty()) { parser.printMessage(); return 1; }
+    if (path.empty()) { parser.printMessage(); return 1; }
 
     // --- load calibration if provided ---
     cv::Mat cameraMatrix, distCoeffs;
@@ -67,18 +67,37 @@ int main(int argc, char** argv) {
 
     auto dict = static_cast<cv::aruco2::DictionaryType>(dictId);
 
+    if (!fs::exists(path)) {
+        std::cerr << "Path does not exist: " << path << "\n";
+        return 1;
+    }
+
     // --- collect image paths ---
     std::vector<std::string> paths;
-    for (auto& entry : fs::directory_iterator(folder)) {
-        std::string ext = entry.path().extension().string();
+    if (fs::is_directory(path)) {
+        for (auto& entry : fs::directory_iterator(path)) {
+            std::string ext = entry.path().extension().string();
+            std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+            if (ext == ".jpg" || ext == ".jpeg" || ext == ".png")
+                paths.push_back(entry.path().string());
+        }
+    } else if (fs::is_regular_file(path)) {
+        std::string ext = fs::path(path).extension().string();
         std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-        if (ext == ".jpg" || ext == ".jpeg" || ext == ".png")
-            paths.push_back(entry.path().string());
+        if (ext == ".jpg" || ext == ".jpeg" || ext == ".png") {
+            paths.push_back(path);
+        } else {
+            std::cerr << "File is not a supported image (jpg/jpeg/png): " << path << "\n";
+            return 1;
+        }
+    } else {
+        std::cerr << "Path is neither a directory nor a file: " << path << "\n";
+        return 1;
     }
     std::sort(paths.begin(), paths.end());
 
     if (paths.empty()) {
-        std::cerr << "No jpg/png images found in: " << folder << "\n";
+        std::cerr << "No jpg/png images found in/at: " << path << "\n";
         return 1;
     }
 

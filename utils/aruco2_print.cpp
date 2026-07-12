@@ -20,14 +20,14 @@ int main(int argc,char **argv) {
             cv::aruco2::getDiamondImage(outImage,cv::aruco2::DICT_ARUCO_MIP_36h12,id);
         }
         else if(type=="f"){
-            cv::aruco2::getFractalMarkerImage(outImage,cv::aruco2::FRACTAL_4L_6);
+            cv::aruco2::getFractalMarkerImage(outImage,cv::aruco2::FRACTAL_3L_6);
         }
         else if(type=="b"){
             cv::aruco2::getGridBoardImage(outImage,cv::Size(9,5), cv::aruco2::DICT_ARUCO_MIP_36h12);
         }
         else if(type=="r"){
             int id=0;
-            cv::aruco2::getRArucoMarkerImage(outImage,cv::aruco2::DICT_APRILTAG_16h5,0,3,5,2,1);
+            cv::aruco2::getRArucoMarkerImage(outImage,cv::aruco2::DICT_APRILTAG_16h5,0,2,30,2,1);
 
          }
         //save image

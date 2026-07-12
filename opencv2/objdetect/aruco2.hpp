@@ -135,7 +135,7 @@ struct CV_EXPORTS_W_SIMPLE DetectionParameters {
     CV_PROP_RW int detectColorMode= 0;//0 black-on-white, 1 white-on-black , 2 both
 
     /** @brief Indicates whether instead of computing the bit value based only on its center,
-     *  it must analyze a set of points into the bit
+     *  it must analyze a set of points into the bit. Mainly used for RArUco markers
      */
     CV_PROP_RW bool gridBitSampling = false;
 

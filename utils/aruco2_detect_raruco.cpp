@@ -220,6 +220,8 @@ void processVideo(const fs::path& videoPath, cv::aruco2::DictionaryType dict, bo
     int frameIdx = 0;
     bool quit = false;
     TimeTracker tracker;
+    cv::aruco2::DetectionParameters dparams;
+    dparams.minSize=20;
     while (cap.read(frame)) {
         if (frame.empty()) break;
 
@@ -257,6 +259,11 @@ void processVideo(const fs::path& videoPath, cv::aruco2::DictionaryType dict, bo
             if (key == 27) { // ESC
                 quit = true;
                 break;
+            }
+            if(key=='w'){
+                //write to a file in full res
+               cv::imwrite((fs::path(savePath) / ("frame_" + std::to_string(frameIdx) + ".png")).string(), frame);
+                std::cout << "Saved frame " << frameIdx << " to file.\n";
             }
         }
         frameIdx++;
