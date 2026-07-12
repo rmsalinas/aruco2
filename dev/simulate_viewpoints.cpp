@@ -162,8 +162,35 @@ int main(int argc, char** argv) {
                     }
                 }
 
+                // Compute expected height of the marker in the output image to avoid aliasing
+                double expected_h = cam.K.at<double>(1,1) * H_p / r;
+                double scale = expected_h / pattern.rows;
+                
+                Mat current_pattern = pattern;
+                if (scale < 0.5) {
+                    int new_h = std::max(10, (int)expected_h);
+                    int new_w = std::max(10, (int)(new_h * W_p / H_p));
+                    resize(pattern, current_pattern, Size(new_w, new_h), 0, 0, INTER_AREA);
+                    
+                    // Adjust map to the new pattern dimensions
+                    double scale_x = (double)new_w / pattern.cols;
+                    double scale_y = (double)new_h / pattern.rows;
+                    
+                    // Multiply valid mapped coordinates by the scale factor
+                    for (int y = 0; y < cam.height; ++y) {
+                        for (int x = 0; x < cam.width; ++x) {
+                            float& mx = map_x.at<float>(y, x);
+                            float& my = map_y.at<float>(y, x);
+                            if (mx >= 0 && my >= 0) {
+                                mx *= scale_x;
+                                my *= scale_y;
+                            }
+                        }
+                    }
+                }
+
                 Mat sim_img;
-                remap(pattern, sim_img, map_x, map_y, INTER_LINEAR, BORDER_CONSTANT, Scalar(128, 128, 128));
+                remap(current_pattern, sim_img, map_x, map_y, INTER_LINEAR, BORDER_CONSTANT, Scalar(128, 128, 128));
 
                 char filename[256];
                 snprintf(filename, sizeof(filename), "sim_%s_dist%.2f_angle%.1f.jpg", 

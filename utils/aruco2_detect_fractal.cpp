@@ -22,7 +22,7 @@ namespace fs = std::filesystem;
 int main(int argc, char** argv) {
     cv::CommandLineParser parser(argc, argv,
         "{@path  |    | folder with images (jpg/png) }"
-        "{ftype  | 2  | fractal type: 0=2L_6 1=3L_6 2=4L_6 3=5L_6 }"
+        "{ftype  | 1  | fractal type: 0=2L_6 1=3L_6 2=4L_6 3=5L_6 }"
         "{calib  |    | calibration YAML/XML produced by aruco2_camera_calibration }"
         "{ms     | 0.10| physical side length of the outer marker in metres }"
         "{show   | true| show each result in a window (any key = next, ESC = quit) }"
