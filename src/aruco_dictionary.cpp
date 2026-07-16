@@ -9,7 +9,6 @@
 #include "predefined_dictionaries_apriltag.hpp"
 #include "predefined_dictionaries_alvar.hpp"
 #include <iostream>
-#include <bitset>
 namespace  cv :: aruco2 {
 
 using namespace std;

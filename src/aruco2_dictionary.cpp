@@ -8,6 +8,7 @@
 #include "aruco2_predefined_dictionaries.hpp"
 #include "aruco2_predefined_dictionaries_apriltag.hpp"
 #include "aruco2_predefined_dictionaries_alvar.hpp"
+#include "aruco2_predefined_dictionaries_raruco.hpp"
 namespace cv {
 namespace aruco2 {
 
@@ -417,6 +418,10 @@ Dictionary getPredefinedDictionary(DictionaryType name) {
     case DICT_ALVAR_7X7_1000:{
         static const Dictionary DICT_ALVAR_7X7_1000_DATA = Dictionary(Mat(1000, (7 * 7 + 7) / 8, CV_8UC4, (uchar*)DICT_ALVAR_7X7_1000_BYTES), 7, 1);
         return Dictionary(DICT_ALVAR_7X7_1000_DATA);
+    }break;
+    case DICT_RARUCO_16h4:{
+        static const Dictionary DICT_RARUCO_16H4_DATA = Dictionary(Mat(5, (4 * 4 + 7) / 8, CV_8UC4, (uchar*)DICT_RARUCO_16h4_BYTES), 4, (4/2)-1);
+        return Dictionary(DICT_RARUCO_16H4_DATA);
     }break;
     default:{
         static const Dictionary DICT_4X4_100_DATA = Dictionary(Mat(100, (4 * 4 + 7) / 8, CV_8UC4, (uchar*)DICT_4X4_1000_BYTES), 4, (3/2)-1);
