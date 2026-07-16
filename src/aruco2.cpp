@@ -34,7 +34,7 @@ private:
     static inline int   getMarkerId(  cv::Mat  candidateBits,int &idx, int &nrotations, const DetectionParameters &params,Dictionary &dictionary);
     static inline int isInto(const std::vector<cv::Point2f> &a, const std::vector<cv::Point2f> &b) ;
     static std::vector<std::vector<cv::Point>> visitedAwareTracingContour(cv::Mat &padded_io, size_t minSize = 1,float maxRevisited=0.1) ;
-    static int getBorderErrors(const cv::Mat &bits, int markerSize, int borderSize) ;
+    static int getBorderErrors(const cv::Mat &bits, int markerSize, int borderSize=1) ;
     static void thres255Adaptive(cv::Mat &in,cv::Mat &out,int off=2,int thres=5);
 };
 
@@ -146,7 +146,7 @@ std::vector<FiducialMarker>  MarkerDetector::detect(const cv::Mat &img,   const 
     for(size_t di=0;di<dictionaries.size();di++){
         Dictionary dictInstance = getPredefinedDictionary(dictionaries[di]);
         std::vector<FiducialMarker> currDirMarkerDetected;
-        cv::Mat bits(dictInstance.markerSize+2*params.markerBorderBits,dictInstance.markerSize+2*params.markerBorderBits,CV_8UC1),bitadaptive(dictInstance.markerSize+2*params.markerBorderBits,dictInstance.markerSize+2*params.markerBorderBits,CV_8UC1);
+        cv::Mat bits(dictInstance.markerSize+2,dictInstance.markerSize+2,CV_8UC1),bitadaptive(dictInstance.markerSize+2,dictInstance.markerSize+2,CV_8UC1);
 
         for(auto it=candidatesOut->begin();it!=candidatesOut->end();){
             auto marker=*it;
@@ -288,15 +288,13 @@ std::vector<FiducialMarker>  MarkerDetector::detect(const cv::Mat &img,   const 
 int MarkerDetector:: getMarkerId(cv::Mat candidateBits, int &idx, int &nrotations, const DetectionParameters &params,Dictionary &dictionary){
     uint8_t typ=1;
 
-
-
     // analyze border bits
     int maximumErrorsInBorder =int(dictionary.markerSize * dictionary.markerSize * params.maxErroneousBitsInBorderRate);
-    int borderErrors =getBorderErrors(candidateBits, dictionary.markerSize, params.markerBorderBits);
+    int borderErrors =getBorderErrors(candidateBits, dictionary.markerSize);
 
     if(borderErrors > maximumErrorsInBorder) return 0; // border is wrong
     // take only inner bits
-    cv::Mat onlyBits =candidateBits.rowRange(params.markerBorderBits,candidateBits.rows - params.markerBorderBits).colRange(params.markerBorderBits, candidateBits.cols - params.markerBorderBits);
+    cv::Mat onlyBits =candidateBits.rowRange(1,candidateBits.rows - 1).colRange(1, candidateBits.cols - 1);
     onlyBits/=255;
     // try to indentify the marker
     if(!dictionary.identify(onlyBits, idx, nrotations, params.errorCorrectionRate))

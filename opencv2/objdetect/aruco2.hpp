@@ -100,13 +100,6 @@ struct CV_EXPORTS_W_SIMPLE DetectionParameters {
      */
     CV_PROP_RW float maxTimesRevisited = 0.05f;
 
-    /** @brief Width of the mandatory black border around each marker, in bits.
-     *
-     * Almost all standard dictionaries use 1 border bit.  Kept for compatibility with
-     * custom dictionaries that deviate from this convention.
-     * Default: 1.
-     */
-    CV_PROP_RW int markerBorderBits = 1;
 
     /** @brief Fraction of `maxCorrectionBits` to use when matching a candidate against the dictionary.
      *

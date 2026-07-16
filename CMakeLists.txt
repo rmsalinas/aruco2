@@ -37,23 +37,13 @@ SET(SRCARUCO2  opencv2/objdetect/aruco2.hpp src/aruco2.cpp src/aruco_dictionary.
 # endif()
 
 include_directories(.)
-# 5. Add Executable
-OPTION(BUILD_DEV OFF)
-IF(BUILD_DEV)
-add_executable(devtest1 dev/devtest1.cpp ${SRCARUCO2})
-target_link_libraries(devtest1 PRIVATE ${OpenCV_LIBS})
-add_executable(devtest2 dev/devtest2.cpp ${SRCARUCO2})
-target_link_libraries(devtest2 PRIVATE ${OpenCV_LIBS})
-add_executable(simulate_viewpoints dev/simulate_viewpoints.cpp ${SRCARUCO2})
-target_link_libraries(simulate_viewpoints PRIVATE ${OpenCV_LIBS})
-add_executable(evaluate_detectors dev/evaluate_detectors.cpp ${SRCARUCO2})
-target_link_libraries(evaluate_detectors PRIVATE ${OpenCV_LIBS})
-ENDIF()
 add_executable(aruco2_camera_calibration utils/aruco2_camera_calibration.cpp ${SRCARUCO2})
 target_link_libraries(aruco2_camera_calibration PRIVATE ${OpenCV_LIBS})
 
 add_executable(aruco2_print utils/aruco2_print.cpp ${SRCARUCO2})
 target_link_libraries(aruco2_print PRIVATE ${OpenCV_LIBS})
+
+
 
 add_executable(aruco2_detect_markers utils/aruco2_detect_markers.cpp ${SRCARUCO2})
 target_link_libraries(aruco2_detect_markers PRIVATE ${OpenCV_LIBS})

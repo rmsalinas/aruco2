@@ -13,7 +13,7 @@ int main(int argc,char **argv) {
         cv::Mat outImage;
         if(type=="m"){
             int id=0;
-            cv::aruco2::getFiducialMarkerImage(outImage,cv::aruco2::DICT_ARUCO_MIP_36h12,id);
+            cv::aruco2::getFiducialMarkerImage(outImage,cv::aruco2::DICT_ARUCO_MIP_36h12,id,100);
         }
         else if(type=="d"){
             cv::Vec4i id{0,1,2,3};
