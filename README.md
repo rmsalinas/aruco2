@@ -12,6 +12,7 @@ A proposed replacement for the ArUco module in OpenCV (fully compatible and comp
 - **Multi-dictionary** detection in one pass
 - **Boards and diamonds** based on [ChArUco2](https://github.com/rmsalinas/charuco2) — double the marker density, twice the corners at 75% occlusion
 - **Fractal markers** — nested multi-scale design gives many more corners for pose estimation, robust to heavy occlusion
+- **RArUco markers** — recursive design nesting the same marker ID within its own bit cells; maintains a single ID across all scales for robust, long-range UAV landing pads (independent of center visibility)
 - **OpenCL acceleration** *(coming soon)*
 
 ---
@@ -58,6 +59,7 @@ for (auto &marker : cv::aruco2::detectFiducialMarkers(image))
 | Board design | markers on half the squares | ChArUco2: markers on every square |
 | Diamond | separate concept using corner lists | first-class `Diamond` type with `vector<FiducialMarker>` |
 | Fractal markers | not supported | first-class `FractalMarker` type — nested design, many more pose corners |
+| RArUco markers | not supported | recursive marker generation and detection via `detectRArucoMarkers()` |
 | Python result | separate lists | `markers = cv.aruco2.detectFiducialMarkers(image)` |
 
 ---
@@ -100,11 +102,13 @@ struct FractalMarker {
 | `getGridBoardImage(img, boardSize, dictionary)` | render a grid board to an image |
 | `getDiamondImage(img, dictionary, ids)` | render a diamond (2×2 block) to an image |
 | `getFractalMarkerImage(img, ftype)` | render a fractal marker to an image |
+| `getRArucoMarkerImage(img, dictionary, id, depth, bitSize, innerBorders, externalBorder)` | render a RArUco marker to an image |
 | `detectFiducialMarkers(image, dictionary)` → `vector<FiducialMarker>` | find markers in an image |
 | `detectFiducialMarkers(image, {dictionary, …})` → `vector<FiducialMarker>` | find markers across multiple dictionaries |
 | `detectGridBoard(image, gridSize, dictionary, board)` → `bool` | find a grid board |
 | `detectDiamonds(image, dictionary)` → `vector<Diamond>` | find diamond markers |
 | `detectFractals(image, ftype)` → `vector<FractalMarker>` | find fractal markers |
+| `detectRArucoMarkers(image, dictionary, params)` → `vector<FiducialMarker>` | find RArUco markers (ignores center details using border-sampling) |
 | `drawFiducialMarkers(image, markers)` | draw marker outlines and ids |
 | `drawGridBoard(image, board)` | draw detected board corners |
 | `drawDiamonds(image, diamonds)` | draw diamond outlines and ids |
@@ -359,6 +363,47 @@ for (const auto &f : fractals) {
     cv::aruco2::getSolvePnpPoints(f, objPts, imgPts, 0.10f); // 10 cm outer marker
     cv::solvePnP(objPts, imgPts, cameraMatrix, distCoeffs, rvec, tvec);
 }
+
+---
+
+### RArUco marker generation and detection
+
+RArUco markers are recursively nested fiducial markers designed specifically for applications with highly dynamic camera-to-target distances, such as Unmanned Aerial Vehicle (UAV) landing pads. The exact same marker ID is embedded at all levels of recursion, allowing a unified identity across scales.
+
+#### Generate a RArUco marker
+
+```cpp
+#include "opencv2/objdetect/aruco2.hpp"
+
+cv::Mat rarucoImg;
+// Generate a RArUco marker using DICT_APRILTAG_16h5, ID 0, recursion depth 2
+cv::aruco2::getRArucoMarkerImage(rarucoImg, cv::aruco2::DICT_APRILTAG_16h5, 0, 2, 30, 2, true);
+cv::imwrite("raruco_marker.png", rarucoImg);
+```
+
+#### Detect RArUco markers
+
+The detection algorithm uses a border-sampling strategy to read bit colors only from the borders of the bits, explicitly ignoring their centers. This makes RArUco markers highly robust to occlusion or inner sub-marker structure.
+
+```cpp
+#include "opencv2/objdetect/aruco2.hpp"
+#include <iostream>
+
+cv::Mat image = cv::imread("scene.jpg");
+
+// Detect RArUco markers (automatically configures grid bit-sampling and dual color mode)
+auto markers = cv::aruco2::detectRArucoMarkers(image, cv::aruco2::DICT_APRILTAG_16h5);
+
+for (const auto &m : markers) {
+    std::cout << "Detected RArUco marker ID=" << m.id << "\n";
+    
+    // Perform pose estimation using the standard solvePnP points helper
+    cv::Mat imgPts, objPts, rvec, tvec;
+    // Pass the estimated physical size of this specific marker level (e.g. 30 cm)
+    cv::aruco2::getSolvePnpPoints(m, objPts, imgPts, 0.30f);
+    // cv::solvePnP(objPts, imgPts, cameraMatrix, distCoeffs, rvec, tvec);
+}
+```
 ```
 
 ---
@@ -432,6 +477,20 @@ Key advantages over standard OpenCV ChArUco:
 
 ---
 
+### Recursive ArUco (RArUco) markers — based on RArUco
+
+RArUco markers are described in:
+> R. Muñoz-Salinas et al., *"Recursive ArUco Markers: A Scalable Fiducial Marker Design for Unmanned Aerial Vehicle Landing Pads"*, 2026.
+
+Key features and implementation details:
+- **Unified ID across scales** — embedding the same marker ID at all levels of recursion ensures that a UAV drone can unambiguously identify and land on its designated landing pad, regardless of altitude/zoom.
+- **Center-occlusion robustness** — unlike standard, Fractal, or Embedded ArUco markers, RArUco does not depend on the marker's center. Instead, a modified bit-sampling strategy reads bit values from a border region of width `b`, ignoring the center where nested sub-markers reside.
+- **Double color mode detection** — markers are embedded within both black and white bits. Embedded markers in black bits are color-inverted, requiring the detector to look for both standard and inverted candidates.
+- **Highly efficient** — runs at ~185 FPS (tested on Intel Core i7-13700H), outperforming both standard ArUco (~85 FPS) and Fractal markers (~76 FPS).
+- **Graceful degradation** — maintains a 100% detection rate at up to 30% occlusion and when cropped up to 60% (only 40% area visible).
+
+---
+
 ## Building
 
 This project compiles with both **OpenCV 5** and **OpenCV 4**.
@@ -465,6 +524,8 @@ cmake --build build
 | Fractal marker detection | done |
 | Draw detected fractal markers | done |
 | Pose estimation — fractal marker | done |
+| Generate RArUco marker images | done |
+| RArUco marker detection | done |
 | Python bindings | designed, pending OpenCV integration |
 
 ---
