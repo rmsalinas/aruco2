@@ -12,7 +12,7 @@ A proposed replacement for the ArUco module in OpenCV (fully compatible and comp
 - **Multi-dictionary** detection in one pass
 - **Boards and diamonds** based on [ChArUco2](https://github.com/rmsalinas/charuco2) — double the marker density, twice the corners at 75% occlusion
 - **Fractal markers** — nested multi-scale design gives many more corners for pose estimation, robust to heavy occlusion
-- **RArUco markers** — recursive design nesting the same marker ID within its own bit cells; maintains a single ID across all scales for robust, long-range UAV landing pads (independent of center visibility)
+- **RArUco markers** ([arXiv:2607.13830](https://arxiv.org/abs/2607.13830)) — recursive design nesting the same marker ID within its own bit cells; maintains a single ID across all scales for robust, long-range UAV landing pads (independent of center visibility)
 - **OpenCL acceleration** *(coming soon)*
 
 ---
@@ -477,10 +477,10 @@ Key advantages over standard OpenCV ChArUco:
 
 ---
 
-### Recursive ArUco (RArUco) markers — based on RArUco
+### Recursive ArUco (RArUco) markers
 
 RArUco markers are described in:
-> R. Muñoz-Salinas et al., *"Recursive ArUco Markers: A Scalable Fiducial Marker Design for Unmanned Aerial Vehicle Landing Pads"*, 2026.
+> R. Muñoz-Salinas et al., *"Recursive ArUco Markers: A Scalable Fiducial Marker Design for Unmanned Aerial Vehicle Landing Pads"*, [arXiv:2607.13830](https://arxiv.org/abs/2607.13830), 2026.
 
 Key features and implementation details:
 - **Unified ID across scales** — embedding the same marker ID at all levels of recursion ensures that a UAV drone can unambiguously identify and land on its designated landing pad, regardless of altitude/zoom.
