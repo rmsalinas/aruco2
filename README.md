@@ -13,7 +13,7 @@ A proposed replacement for the ArUco module in OpenCV (fully compatible and comp
 - **Boards and diamonds** based on [ChArUco2](https://github.com/rmsalinas/charuco2) — double the marker density, twice the corners at 75% occlusion
 - **Fractal markers** — nested multi-scale design gives many more corners for pose estimation, robust to heavy occlusion
 - **RArUco markers** ([arXiv:2607.13830](https://arxiv.org/abs/2607.13830)) — recursive design nesting the same marker ID within its own bit cells; maintains a single ID across all scales for robust, long-range UAV landing pads (independent of center visibility)
-- **OpenCL acceleration** *(coming soon)*
+- **OpenCL acceleration** ([SSRN 7031769](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=7031769)) *(coming soon — next week)*
 
 ---
 
