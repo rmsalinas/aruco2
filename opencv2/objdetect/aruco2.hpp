@@ -132,6 +132,12 @@ struct CV_EXPORTS_W_SIMPLE DetectionParameters {
      */
     CV_PROP_RW bool gridBitSampling = false;
 
+    /** @brief Harris threshold for GPU method
+     *
+     * Default: 80.
+     */
+    CV_PROP_RW float harrisThresh = 80.f;
+
 };
 
 

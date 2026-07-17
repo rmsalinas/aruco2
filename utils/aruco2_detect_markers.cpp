@@ -8,6 +8,7 @@
 #include <opencv2/calib3d.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
+#include <opencv2/core/ocl.hpp>
 #include <filesystem>
 #include <iostream>
 #include <algorithm>
@@ -112,11 +113,28 @@ int main(int argc, char** argv) {
         cv::Mat image = cv::imread(path);
         if (image.empty()) { std::cerr << "  [warn] cannot read: " << path << "\n"; continue; }
 
-        auto markers = cv::aruco2::detectFiducialMarkers(image, dict);
+        cv::Mat gray;
+        if (image.channels() == 3) {
+            cv::cvtColor(image, gray, cv::COLOR_BGR2GRAY);
+        } else {
+            gray = image;
+        }
+
+        cv::UMat u_gray;
+        std::vector<cv::aruco2::FiducialMarker> markers;
+        auto t_start = std::chrono::high_resolution_clock::now();
+        if (cv::ocl::useOpenCL()) {
+            gray.copyTo(u_gray); // Transfer img to GPU
+            markers = cv::aruco2::detectFiducialMarkers(u_gray, dict);
+        } else {
+            markers = cv::aruco2::detectFiducialMarkers(gray, dict);
+        }
+        auto t_end = std::chrono::high_resolution_clock::now();
+        double cur_ms = std::chrono::duration<double, std::milli>(t_end - t_start).count();
         cv::aruco2::drawFiducialMarkers(image, markers);
 
-        std::cout << fs::path(path).filename().string()
-                  << " : " << markers.size() << " marker(s) detected";
+        std::cout << fs::path(path).filename().string() << " : " << markers.size()
+                  << " marker(s) detected in " << cur_ms << " ms" << std::endl;
 
         if (hasCalib && !markers.empty()) {
             for (const auto& marker : markers) {
