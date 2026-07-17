@@ -364,7 +364,7 @@ for (const auto &f : fractals) {
     cv::solvePnP(objPts, imgPts, cameraMatrix, distCoeffs, rvec, tvec);
 }
 
----
+```
 
 ### RArUco marker generation and detection
 
