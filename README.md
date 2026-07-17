@@ -404,7 +404,6 @@ for (const auto &m : markers) {
     // cv::solvePnP(objPts, imgPts, cameraMatrix, distCoeffs, rvec, tvec);
 }
 ```
-```
 
 ---
 
