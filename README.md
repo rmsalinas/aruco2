@@ -8,7 +8,7 @@ A proposed replacement for the ArUco module in OpenCV (fully compatible and comp
 - **Single public header** — `#include "aruco2.hpp"` is all you need; no extra headers to hunt down
 - **6.5× more efficient** detection engine based on [ArUco Nano](https://github.com/rmsalinas/aruco_nano)
 - **[OpenCL acceleration](#opencl--gpu-acceleration)** for markers ([SSRN 7031769](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=7031769)) 
-- **Fractal markers** — [nested multi-scale design](https://www.researchgate.net/publication/337024999_Fractal_Markers_A_New_Approach_for_Long-Range_Marker_Pose_Estimation_Under_Occlusion) gives many more corners for pose estimation, robust to heavy occlusion 
+- **Fractal markers** — [nested multi-scale design](https://ieeexplore.ieee.org/document/8890613/) gives many more corners for pose estimation, robust to heavy occlusion 
 - **Boards and diamonds** based on [ChArUco2](https://github.com/rmsalinas/charuco2) — double the marker density, twice the corners at 75% occlusion
 - **RArUco markers** ([arXiv:2607.13830](https://arxiv.org/abs/2607.13830)) — recursive design nesting the same marker ID within its own bit cells; maintains a single ID across all scales for robust, long-range UAV landing pads (independent of center visibility)
 - **Up to 2.7× faster** dictionary identification via O(1) hash-map lookup
