@@ -13,7 +13,7 @@ A proposed replacement for the ArUco module in OpenCV (fully compatible and comp
 - **Boards and diamonds** based on [ChArUco2](https://github.com/rmsalinas/charuco2) — double the marker density, twice the corners at 75% occlusion
 - **Fractal markers** — nested multi-scale design gives many more corners for pose estimation, robust to heavy occlusion
 - **RArUco markers** ([arXiv:2607.13830](https://arxiv.org/abs/2607.13830)) — recursive design nesting the same marker ID within its own bit cells; maintains a single ID across all scales for robust, long-range UAV landing pads (independent of center visibility)
-- **OpenCL acceleration** for markers ([SSRN 7031769](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=7031769)) 
+- **[OpenCL acceleration](#opencl--gpu-acceleration)** for markers ([SSRN 7031769](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=7031769)) 
 
 ---
 
@@ -405,6 +405,51 @@ for (const auto &m : markers) {
 }
 ```
 
+### OpenCL / GPU Acceleration
+
+`aruco2` features a high-performance, fully GPU-accelerated detection pipeline using OpenCL. Key stages—including image thresholding, connected component labeling, corner extraction, candidate identification, and subpixel corner refinement—are run entirely on the GPU.
+
+#### How to use it
+To trigger GPU acceleration, simply pass the input image as a `cv::UMat` instead of `cv::Mat`. The library detects the input type and automatically routes it to the OpenCL pipeline.
+
+```cpp
+#include "aruco2.hpp"
+#include <opencv2/core/ocl.hpp>
+#include <iostream>
+
+// Verify OpenCL is available and enabled
+cv::ocl::setUseOpenCL(true); // Optional: explicitly enable
+
+if (cv::ocl::useOpenCL()) {
+    cv::Mat gray = cv::imread("scene.jpg", cv::IMREAD_GRAYSCALE);
+    
+    // Transfer CPU image data to GPU memory (UMat)
+    cv::UMat u_gray;
+    gray.copyTo(u_gray);
+
+    // Runs the entire detection pipeline on the GPU
+    auto markers = cv::aruco2::detectFiducialMarkers(u_gray);
+
+    for (const auto &m : markers) {
+        std::cout << "GPU Detected ID: " << m.id << "\n";
+    }
+} else {
+    std::cout << "OpenCL is not available. Falling back to CPU.\n";
+}
+```
+
+#### Selecting a Specific Device
+OpenCV dynamically compiles the OpenCL kernels (`opencl/arucodetect.cl`) at runtime. You can specify which OpenCL device to run on (e.g., a discrete GPU vs. an integrated GPU) by setting the `OPENCV_OPENCL_DEVICE` environment variable before running your application.
+
+For example:
+```bash
+# Run on the first GPU device
+export OPENCV_OPENCL_DEVICE=:GPU:0
+
+# Run on an AMD platform
+export OPENCV_OPENCL_DEVICE=AMD
+```
+
 ---
 
 ## Implementation
@@ -525,6 +570,7 @@ cmake --build build
 | Pose estimation — fractal marker | done |
 | Generate RArUco marker images | done |
 | RArUco marker detection | done |
+| OpenCL GPU acceleration | done |
 | Python bindings | designed, pending OpenCV integration |
 
 ---
