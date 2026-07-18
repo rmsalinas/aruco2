@@ -11,6 +11,8 @@
 #include "opencv2/core/utils/logger.hpp"
 #include <opencv2/highgui.hpp>
 
+#include "opencl_kernels_aruco2.hpp"
+
 //IF OpenCV 5
 #if CV_VERSION_MAJOR >= 5
 #include <opencv2/3d.hpp>
@@ -23,11 +25,20 @@ namespace {
 using namespace cv;
 using namespace cv::aruco2;
 
+struct GPUDictCache {
+    int markerSize;
+    int num_markers;
+    const uchar *bytes_ptr;
+    void *context_ptr;
+    cv::UMat u_dict_codes;
+};
+
 /** @brief The MarkerDetector class is detecting the markers in the image passed */
 class MarkerDetector{
 public:
     // The only function you need to call
     static inline std::vector<FiducialMarker> detect(const cv::Mat &img, const std::vector<DictionaryType> dictionaries,  const DetectionParameters &params=DetectionParameters(),std::vector<FiducialMarker> *candidatesOut=nullptr,cv::Mat ThresImageIn={});
+    static inline std::vector<FiducialMarker> detect(const cv::UMat &img, const std::vector<DictionaryType> dictionaries,  const DetectionParameters &params=DetectionParameters(),std::vector<FiducialMarker> *candidatesOut=nullptr,cv::UMat ThresImageIn={});
 private:
     static inline FiducialMarker sort( const  FiducialMarker &marker);
     static inline float  getSubpixelValue(const cv::Mat &im_grey,const cv::Point2f &p);
@@ -81,6 +92,443 @@ int MarkerDetector::isInto(const std::vector<cv::Point2f> &a, const std::vector<
     if (bInA > aInB) return 2;
     // Default: Tie or no relative dominance
     return 0;
+}
+
+std::vector<FiducialMarker> MarkerDetector::detect(const cv::UMat &img, const std::vector<DictionaryType> dictionaries,
+    const DetectionParameters &params, std::vector<FiducialMarker> *candidatesOut, cv::UMat ThresImIn) {
+
+    std::vector<FiducialMarker> DetectedMarkers;
+
+    int width = img.cols;
+    int height = img.rows;
+
+    // GPU buffers allocated on stack (efficiently recycled by OpenCV's internal
+    // pool)
+    cv::UMat u_bwimage, u_mean, u_labels, u_thresh, u_count;
+    cv::UMat u_harris, u_harris_norm;
+    cv::UMat u_corners_out, u_corner_count, u_hash_keys, u_hash_counts;
+    cv::UMat u_valid_corners_out, u_final_polygon_count;
+
+    // Harris parameters
+    int h_bsize = 3;  // Harris block size
+    float h_k = 0.02; // Harris aperture Sobel
+
+    // W_0 parameter for GPU scale computation
+    float gpuW0 = 1024.f;
+
+    int k = std::max(0, (int)std::floor(std::log2((float)width / gpuW0)));
+    int h_ksize = (3 + 2 * k);               // Harris kernel size
+    int nms_radius = std::max(1, 2 * k - 1); // NMS radius
+
+    if (img.channels() == 3) {
+        cv::cvtColor(img, u_bwimage, cv::COLOR_BGR2GRAY);
+    } else {
+        u_bwimage = img; // Already a 1-channel grayscale image (CV_8UC1)
+    }
+
+    // Create the label buffer (32-bit integers, 1 channel)
+    u_labels.create(height, width, CV_32SC1);
+    if (!u_labels.isContinuous()) {
+        u_labels = u_labels.clone();
+    }
+
+    u_count.create(1, 1, CV_32SC1);
+
+    // Retrieve the compiled OpenCL program from OpenCV's context-level cache
+    cv::String errmsg;
+    cv::ocl::Program program = cv::ocl::Context::getDefault().getProg(
+        cv::ocl::objdetect::arucodetect_oclsrc, "", errmsg);
+    if (program.empty()) {
+        return {}; // Fallback to CPU if compilation fails
+    }
+
+    size_t globalThreads[2] = {(size_t)width, (size_t)height};
+    CV_UNUSED(globalThreads); // Silencing warning until used in GPU kernels
+
+    if (ThresImIn.empty()) {
+        int winSize = (int)params.boxFilterSize;
+        if (winSize % 2 == 0) {
+            winSize++;
+        }
+        cv::boxFilter(u_bwimage, u_mean, u_bwimage.type(),
+                      cv::Size(winSize, winSize));
+
+        u_thresh.create(height, width, CV_8UC1);
+        // Force no memory padding
+        if (!u_thresh.isContinuous()) {
+            u_thresh = u_thresh.clone();
+        }
+
+        // 1. Preprocess and Init (Fused)
+        // Concurrently thresholds the image and initializes the label array for
+        // Union-Find
+        cv::ocl::Kernel k_prep_init("preprocess_and_init", program);
+        k_prep_init.args(cv::ocl::KernelArg::PtrReadOnly(u_bwimage),
+                         cv::ocl::KernelArg::PtrReadOnly(u_mean),
+                         cv::ocl::KernelArg::PtrWriteOnly(u_thresh),
+                         cv::ocl::KernelArg::PtrReadWrite(u_labels), width, height,
+                         (uchar)params.thres);
+        k_prep_init.run(2, globalThreads, NULL, false);
+    } else {
+        CV_Assert(ThresImIn.size() == cv::Size(width, height) &&
+                  ThresImIn.type() == CV_8UC1);
+        u_thresh = ThresImIn;
+
+        // 1. Init labels
+        // Initialize the Union-Find label array when thresholded image is
+        // pre-provided
+        cv::ocl::Kernel k_init_labels("init_labels", program);
+        k_init_labels.args(cv::ocl::KernelArg::PtrReadWrite(u_labels), width,
+                           height);
+        k_init_labels.run(2, globalThreads, NULL, false);
+    }
+
+    // 2. Merge (Union-Find)
+    // Merges adjacent pixels with the same binary threshold state in the label
+    // array
+    cv::ocl::Kernel k_merge("uf_merge", program);
+    k_merge.args(cv::ocl::KernelArg::PtrReadOnly(u_thresh),
+                 cv::ocl::KernelArg::PtrReadWrite(u_labels), width, height);
+    k_merge.run(2, globalThreads, NULL, false);
+
+    // 3. Flatten (Union-Find)
+    // Resolves the equivalence trees so that each pixel points directly to its
+    // root component ID
+    cv::ocl::Kernel k_flatten("uf_flatten", program);
+
+    u_count.setTo(0);
+    k_flatten.args(cv::ocl::KernelArg::PtrReadWrite(u_labels),
+                   cv::ocl::KernelArg::PtrReadWrite(u_count), width, height);
+    k_flatten.run(2, globalThreads, NULL, false);
+
+    const int HASH_SIZE = 131072;
+    const int max_points_per_hash = 8;
+
+    u_corners_out.create(1, HASH_SIZE * max_points_per_hash * 2, CV_32SC1);
+
+    u_corner_count.create(1, 1, CV_32SC1);
+    u_corner_count.setTo(cv::Scalar(0));
+
+    u_hash_keys.create(1, HASH_SIZE, CV_32SC1);
+    u_hash_keys.setTo(cv::Scalar(0));
+
+    u_hash_counts.create(1, HASH_SIZE, CV_32SC1);
+    u_hash_counts.setTo(cv::Scalar(0));
+
+    // Compute Harris corner response map on the thresholded image
+    cv::cornerHarris(u_thresh, u_harris, h_bsize, h_ksize, h_k);
+
+    cv::pow(u_harris, 0.5, u_harris);
+    // Normalize values to the [0, 255] range
+    cv::normalize(u_harris, u_harris_norm, 0, 255, cv::NORM_MINMAX, CV_8UC1,
+                  cv::noArray());
+
+    // Step 4: Corner Extraction (NMS)
+    // Finds corners within each labeled component and stores them in a spatial
+    // hash table
+    cv::ocl::Kernel k_nms("find_corners_nms", program);
+    k_nms.args(cv::ocl::KernelArg::PtrReadOnly(u_harris_norm),
+               cv::ocl::KernelArg::PtrReadOnly(u_labels),
+               cv::ocl::KernelArg::PtrWriteOnly(u_corners_out),
+               cv::ocl::KernelArg::PtrReadWrite(u_corner_count),
+               cv::ocl::KernelArg::PtrReadWrite(u_hash_keys),
+               cv::ocl::KernelArg::PtrReadWrite(u_hash_counts), nms_radius,
+               HASH_SIZE, width, height, params.harrisThresh,
+               max_points_per_hash);
+    k_nms.run(2, globalThreads, NULL, true);
+
+    //---------------------------------------------------------
+    // COMPACTION AND SORTING (GPU-based)
+    //---------------------------------------------------------
+
+    int MAX_EXPECTED_MARKERS = 10000;
+
+    u_valid_corners_out.create(
+        1, MAX_EXPECTED_MARKERS * 8,
+        CV_32SC1); // 8 integers per marker (4 pts * 2 coords)
+
+    u_final_polygon_count.create(1, 1, CV_32SC1);
+    u_final_polygon_count.setTo(cv::Scalar(0));
+
+    cv::ocl::Kernel k_compact("compact_and_sort", program);
+    k_compact.args(cv::ocl::KernelArg::PtrReadOnly(u_hash_counts),
+                   cv::ocl::KernelArg::PtrReadOnly(u_corners_out),
+                   cv::ocl::KernelArg::PtrWriteOnly(u_valid_corners_out),
+                   cv::ocl::KernelArg::PtrReadWrite(u_final_polygon_count),
+                   max_points_per_hash, MAX_EXPECTED_MARKERS,
+                   params.minSize * params.minSize,
+                   cv::ocl::KernelArg::PtrReadOnly(u_labels), width, height);
+
+    // Launch one thread per hash table slot
+    size_t globalThreadsCompact[1] = {(size_t)HASH_SIZE};
+    k_compact.run(1, globalThreadsCompact, NULL, true);
+
+    int num_polygons = 0;
+    std::vector<int> cpu_valid_corners;
+    cv::Mat mat_final_count = u_final_polygon_count.getMat(cv::ACCESS_READ);
+    num_polygons = mat_final_count.at<int>(0, 0);
+    if (num_polygons > 0) {
+        cv::Mat mat_valid_corners = u_valid_corners_out.getMat(cv::ACCESS_READ);
+        cpu_valid_corners.resize(num_polygons * 8);
+        std::memcpy(cpu_valid_corners.data(), mat_valid_corners.ptr<int>(),
+                    num_polygons * 8 * sizeof(int));
+    }
+
+    std::vector<FiducialMarker> candidateslocal;
+    if (candidatesOut != nullptr) {
+        candidatesOut->clear();
+    } else {
+        candidatesOut = &candidateslocal;
+    }
+
+    const int *ptr_valid = cpu_valid_corners.data();
+    for (int i = 0; i < num_polygons; i++) {
+        FiducialMarker marker;
+        marker.corners.reserve(4);
+        // Read the points already sorted by the kernel
+        for (int j = 0; j < 4; j++) {
+            marker.corners.emplace_back(
+                cv::Point2f(ptr_valid[i * 8 + j * 2], ptr_valid[i * 8 + j * 2 + 1]));
+        }
+        marker.id = i; // Store original GPU index
+
+        candidatesOut->push_back(marker);
+    }
+
+    //---------------------------------------------------------
+    // STABILIZE CANDIDATES ORDER (CPU)
+    //---------------------------------------------------------
+    // The GPU returns candidates in a non-deterministic order due to atomic
+    // operations. We sort them based on their centroid to ensure deterministic
+    // iterations.
+    std::sort(candidatesOut->begin(), candidatesOut->end(),
+              [](const FiducialMarker &a, const FiducialMarker &b) {
+                  float ca_x = 0, ca_y = 0;
+                  for (const auto &p : a.corners) {
+                      ca_x += p.x;
+                      ca_y += p.y;
+                  }
+                  float cb_x = 0, cb_y = 0;
+                  for (const auto &p : b.corners) {
+                      cb_x += p.x;
+                      cb_y += p.y;
+                  }
+                  if (std::abs(ca_y - cb_y) > 2.0f)
+                      return ca_y < cb_y;
+                  return ca_x < cb_x;
+              });
+
+    //---------------------------------------------------------
+    // EXTRACT MARKERS ID (GPU First Pass + CPU Fallback)
+    //---------------------------------------------------------
+    if (num_polygons > 0) {
+        // ---------------------------------------------------------
+        // GPU PATH: Entire Pipeline on GPU
+        // ---------------------------------------------------------
+
+        // 1. Calculate average edge length of candidates to determine refinement
+        // window size
+        double avrgLen = 0;
+        for (int i = 0; i < num_polygons; i++) {
+            for (int j = 0; j < 4; j++) {
+                float x1 = cpu_valid_corners[i * 8 + j * 2];
+                float y1 = cpu_valid_corners[i * 8 + j * 2 + 1];
+                float x2 = cpu_valid_corners[i * 8 + ((j + 1) % 4) * 2];
+                float y2 = cpu_valid_corners[i * 8 + ((j + 1) % 4) * 2 + 1];
+                avrgLen += std::sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2));
+            }
+        }
+        avrgLen /= 4 * num_polygons;
+        int halfwsize =
+            std::min(int(3 * std::max(1.f, float(avrgLen) / float(34))), 9);
+
+        // 2. Allocate tracking buffers on GPU
+        cv::UMat u_candidate_matched(1, num_polygons, CV_32SC1);
+        u_candidate_matched.setTo(cv::Scalar(0));
+
+        cv::UMat u_detected_count(1, 1, CV_32SC1);
+        u_detected_count.setTo(cv::Scalar(0));
+
+        cv::UMat u_detected_markers(1, num_polygons * 10, CV_32FC1);
+
+        // 3. Loop over dictionaries entirely on GPU
+        for (size_t di = 0; di < dictionaries.size(); di++) {
+            Dictionary dictInstance = getPredefinedDictionary(dictionaries[di]);
+            cv::UMat u_dict_codes;
+
+            thread_local static std::vector<GPUDictCache> dict_cache;
+            void *current_ctx = cv::ocl::Context::getDefault().ptr();
+
+            // Prune stale cache entries from other contexts to release GPU resources
+            dict_cache.erase(std::remove_if(dict_cache.begin(), dict_cache.end(),
+                                            [current_ctx](const GPUDictCache &c) {
+                                                return c.context_ptr != current_ctx;
+                                            }),
+                             dict_cache.end());
+
+            const GPUDictCache *cached_found = nullptr;
+            for (const auto &cache : dict_cache) {
+                if (cache.markerSize == dictInstance.markerSize &&
+                    cache.num_markers == dictInstance.bytesList.rows &&
+                    cache.bytes_ptr == dictInstance.bytesList.data) {
+                    cached_found = &cache;
+                    break;
+                }
+            }
+
+            if (cached_found) {
+                u_dict_codes = cached_found->u_dict_codes;
+            } else {
+                std::vector<uint64_t> gpu_dict_codes;
+                gpu_dict_codes.reserve(dictInstance.bytesList.rows);
+                for (int i = 0; i < dictInstance.bytesList.rows; i++) {
+                    cv::Mat bits_mat = Dictionary::getBitsFromByteList(
+                        dictInstance.bytesList.row(i), dictInstance.markerSize);
+                    uint64_t code = 0;
+                    int bit_idx = 0;
+                    for (int r = 0; r < bits_mat.rows; r++) {
+                        for (int c = 0; c < bits_mat.cols; c++) {
+                            uint64_t bit = bits_mat.at<uchar>(r, c) ? 1 : 0;
+                            code |= (bit << bit_idx);
+                            bit_idx++;
+                        }
+                    }
+                    gpu_dict_codes.push_back(code);
+                }
+
+                if (!gpu_dict_codes.empty()) {
+                    cv::Mat mat_dict_codes(1, (int)gpu_dict_codes.size() * 8, CV_8UC1,
+                                           (void *)gpu_dict_codes.data());
+                    mat_dict_codes.copyTo(u_dict_codes);
+                }
+
+                GPUDictCache new_cache;
+                new_cache.markerSize = dictInstance.markerSize;
+                new_cache.num_markers = dictInstance.bytesList.rows;
+                new_cache.bytes_ptr = dictInstance.bytesList.data;
+                new_cache.context_ptr = current_ctx;
+                new_cache.u_dict_codes = u_dict_codes;
+                dict_cache.push_back(new_cache);
+            }
+
+            int max_attempts = params.maxAttemptsPerCandidate;
+            if (max_attempts < 1)
+                max_attempts = 1;
+
+            cv::UMat u_identified_ids;
+            cv::UMat u_identified_rotations;
+            u_identified_ids.create(1, num_polygons * max_attempts, CV_32SC1);
+            u_identified_rotations.create(1, num_polygons * max_attempts, CV_32SC1);
+            u_identified_ids.setTo(cv::Scalar(-1));
+            u_identified_rotations.setTo(cv::Scalar(-1));
+
+            if (!u_dict_codes.empty()) {
+                cv::ocl::Kernel k_identify("identify_candidates", program);
+                unsigned int seed = 12345;
+
+                k_identify.args(
+                    cv::ocl::KernelArg::PtrReadOnly(u_bwimage), (int)u_bwimage.step,
+                    width, height, cv::ocl::KernelArg::PtrReadOnly(u_valid_corners_out),
+                    num_polygons, cv::ocl::KernelArg::PtrReadOnly(u_dict_codes),
+                    (int)dictInstance.bytesList.rows, dictInstance.markerSize,
+                    (int)(dictInstance.maxCorrectionBits * params.errorCorrectionRate),
+                    (float)params.maxErroneousBitsInBorderRate,
+                    (uchar)params.detectColorMode, max_attempts,
+                    (unsigned int)seed,
+                    cv::ocl::KernelArg::PtrReadOnly(u_candidate_matched),
+                    cv::ocl::KernelArg::PtrWriteOnly(u_identified_ids),
+                    cv::ocl::KernelArg::PtrWriteOnly(u_identified_rotations));
+                size_t globalThreadsIdentify[1] = {(size_t)num_polygons *
+                                                   (size_t)max_attempts};
+                k_identify.run(1, globalThreadsIdentify, NULL, true);
+
+                cv::ocl::Kernel k_refine("refine_and_collect_matches", program);
+                k_refine.args(
+                    cv::ocl::KernelArg::PtrReadOnly(u_bwimage), (int)u_bwimage.step,
+                    width, height, cv::ocl::KernelArg::PtrReadOnly(u_valid_corners_out),
+                    cv::ocl::KernelArg::PtrReadOnly(u_identified_ids),
+                    cv::ocl::KernelArg::PtrReadOnly(u_identified_rotations),
+                    cv::ocl::KernelArg::PtrReadWrite(u_candidate_matched), num_polygons,
+                    max_attempts, (int)di, dictInstance.markerSize, halfwsize, 12,
+                    0.005f, cv::ocl::KernelArg::PtrReadWrite(u_detected_count),
+                    cv::ocl::KernelArg::PtrReadWrite(u_detected_markers), num_polygons);
+                size_t globalThreadsRefine[1] = {(size_t)num_polygons};
+                k_refine.run(1, globalThreadsRefine, NULL, true);
+            }
+        }
+
+        // 4. Download final detected markers list to host
+        cv::Mat mat_count = u_detected_count.getMat(cv::ACCESS_READ);
+        int detected_count = mat_count.at<int>(0, 0);
+        if (detected_count > 0) {
+            cv::Mat mat_detected = u_detected_markers.getMat(cv::ACCESS_READ);
+            const float *ptr_detected = mat_detected.ptr<float>();
+            for (int i = 0; i < detected_count; i++) {
+                int out_base = i * 10;
+                int matched_id = (int)ptr_detected[out_base + 0];
+                int dict_idx = (int)ptr_detected[out_base + 1];
+
+                FiducialMarker marker;
+                marker.id = matched_id;
+                marker.dictionary = dictionaries[dict_idx];
+                marker.corners.resize(4);
+                marker.corners[0] =
+                    cv::Point2f(ptr_detected[out_base + 2], ptr_detected[out_base + 3]);
+                marker.corners[1] =
+                    cv::Point2f(ptr_detected[out_base + 4], ptr_detected[out_base + 5]);
+                marker.corners[2] =
+                    cv::Point2f(ptr_detected[out_base + 6], ptr_detected[out_base + 7]);
+                marker.corners[3] =
+                    cv::Point2f(ptr_detected[out_base + 8], ptr_detected[out_base + 9]);
+                DetectedMarkers.push_back(marker);
+            }
+        }
+    }
+
+    //---------------------------------------------------------
+    // DELETE DUPLICATES (CPU)
+    //---------------------------------------------------------
+    std::sort(DetectedMarkers.begin(), DetectedMarkers.end(),
+              [](const FiducialMarker &a, const FiducialMarker &b) {
+                  return a.id < b.id;
+              });
+    {
+        std::vector<bool> toRemove(DetectedMarkers.size(), false);
+        for (int i = 0; i < int(DetectedMarkers.size()) - 1; i++) {
+            for (int j = i + 1; j < int(DetectedMarkers.size()) && !toRemove[i];
+                 j++) {
+                // 1. Check if they are nearly identical in position (same or different
+                // IDs/dictionaries)
+                float dist = 0;
+                for (int c = 0; c < 4; c++) {
+                    dist += cv::norm(DetectedMarkers[i].corners[c] -
+                                     DetectedMarkers[j].corners[c]);
+                }
+                if (dist < 5.0f) {
+                    toRemove[j] = true;
+                    continue;
+                }
+
+                // 2. Check if one is nested inside the other (only for the same ID)
+                if (DetectedMarkers[i].id == DetectedMarkers[j].id) {
+                    auto res =
+                        isInto(DetectedMarkers[i].corners, DetectedMarkers[j].corners);
+                    if (res == 1)
+                        toRemove[i] = true;
+                    else if (res == 2)
+                        toRemove[j] = true;
+                }
+            }
+        }
+        // now remove the marked ones
+        std::vector<FiducialMarker> DetectedMarkers2;
+        for (unsigned int i = 0; i < DetectedMarkers.size(); i++)
+            if (!toRemove[i])
+                DetectedMarkers2.push_back(DetectedMarkers[i]);
+        DetectedMarkers = DetectedMarkers2;
+    }
+
+    return DetectedMarkers;
 }
 
 std::vector<FiducialMarker>  MarkerDetector::detect(const cv::Mat &img,   const std::vector<DictionaryType> dictionaries,const DetectionParameters &params,std::vector<FiducialMarker> *candidatesOut,cv::Mat ThresImIn){
@@ -799,10 +1247,14 @@ namespace cv {
 namespace aruco2 {
 
 std::vector<FiducialMarker> detectFiducialMarkers(InputArray image,const std::vector<DictionaryType> &dictionaries,const DetectionParameters &detectorParams){
-    return MarkerDetector::detect(image.getMat(),dictionaries,detectorParams);
+    CV_Assert(!image.empty());
+    if (image.isUMat() && cv::ocl::useOpenCL()) {
+        return MarkerDetector::detect(image.getUMat(), dictionaries, detectorParams);
+    }
+    return MarkerDetector::detect(image.getMat(), dictionaries, detectorParams);
 }
 std::vector<FiducialMarker> detectFiducialMarkers(InputArray image,DictionaryType dictionary,const DetectionParameters &detectorParams){
-    return MarkerDetector::detect(image.getMat(),{dictionary},detectorParams);
+    return detectFiducialMarkers(image,std::vector<DictionaryType>{dictionary},detectorParams);
 }
 
 

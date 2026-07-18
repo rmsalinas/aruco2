@@ -21,11 +21,34 @@ endif()
 # 4. Find Dependencies
 # ---------------------------------------------------------------------------
 find_package(OpenCV REQUIRED)
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+
 #include opencv dir
 include_directories(${OpenCV_INCLUDE_DIRS})
 include_directories(src)
 include_directories(opencv2/objdetect)
-SET(SRCARUCO2  opencv2/objdetect/aruco2.hpp src/aruco2.cpp src/aruco_dictionary.hpp src/aruco_dictionary.cpp src/aruco2_fractal.cpp)
+
+# Generate C++ wrappers for OpenCL kernels
+add_custom_command(
+    OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/opencl_kernels_aruco2.hpp"
+           "${CMAKE_CURRENT_BINARY_DIR}/opencl_kernels_aruco2.cpp"
+    COMMAND Python3::Interpreter "${CMAKE_CURRENT_SOURCE_DIR}/utils/cl2cpp.py"
+            "${CMAKE_CURRENT_SOURCE_DIR}/opencl/arucodetect.cl"
+            "${CMAKE_CURRENT_BINARY_DIR}/opencl_kernels_aruco2.hpp"
+            "${CMAKE_CURRENT_BINARY_DIR}/opencl_kernels_aruco2.cpp"
+    DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/opencl/arucodetect.cl"
+            "${CMAKE_CURRENT_SOURCE_DIR}/utils/cl2cpp.py"
+    COMMENT "Generating C++ wrappers from OpenCL kernels"
+    VERBATIM
+)
+
+# Include the binary directory so the compiler can find the generated header
+include_directories(${CMAKE_CURRENT_BINARY_DIR})
+
+SET(SRCARUCO2  opencv2/objdetect/aruco2.hpp src/aruco2.cpp src/aruco_dictionary.hpp src/aruco_dictionary.cpp src/aruco2_fractal.cpp
+    "${CMAKE_CURRENT_BINARY_DIR}/opencl_kernels_aruco2.hpp"
+    "${CMAKE_CURRENT_BINARY_DIR}/opencl_kernels_aruco2.cpp"
+)
 
 # ---------------------------------------------------------------------------
 # 5. Compiler warnings — pedantic, treat warnings as errors
