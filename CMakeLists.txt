@@ -21,7 +21,6 @@ endif()
 # 4. Find Dependencies
 # ---------------------------------------------------------------------------
 find_package(OpenCV REQUIRED)
-find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
 #include opencv dir
 include_directories(${OpenCV_INCLUDE_DIRS})
@@ -32,12 +31,13 @@ include_directories(opencv2/objdetect)
 add_custom_command(
     OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/opencl_kernels_aruco2.hpp"
            "${CMAKE_CURRENT_BINARY_DIR}/opencl_kernels_aruco2.cpp"
-    COMMAND Python3::Interpreter "${CMAKE_CURRENT_SOURCE_DIR}/utils/cl2cpp.py"
-            "${CMAKE_CURRENT_SOURCE_DIR}/opencl/arucodetect.cl"
-            "${CMAKE_CURRENT_BINARY_DIR}/opencl_kernels_aruco2.hpp"
-            "${CMAKE_CURRENT_BINARY_DIR}/opencl_kernels_aruco2.cpp"
+    COMMAND ${CMAKE_COMMAND}
+            "-DCL_PATH=${CMAKE_CURRENT_SOURCE_DIR}/opencl/arucodetect.cl"
+            "-DHPP_PATH=${CMAKE_CURRENT_BINARY_DIR}/opencl_kernels_aruco2.hpp"
+            "-DCPP_PATH=${CMAKE_CURRENT_BINARY_DIR}/opencl_kernels_aruco2.cpp"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/utils/cl2cpp.cmake"
     DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/opencl/arucodetect.cl"
-            "${CMAKE_CURRENT_SOURCE_DIR}/utils/cl2cpp.py"
+            "${CMAKE_CURRENT_SOURCE_DIR}/utils/cl2cpp.cmake"
     COMMENT "Generating C++ wrappers from OpenCL kernels"
     VERBATIM
 )
