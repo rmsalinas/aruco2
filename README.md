@@ -4,16 +4,14 @@
 
 A proposed replacement for the ArUco module in OpenCV (fully compatible and compiling with both OpenCV 5 and OpenCV 4), by the original ArUco author. This repository serves as the standalone version of the implementation proposed in [OpenCV PR #29063](https://github.com/opencv/opencv/pull/29063) before it is accepted (if it ever is) in the official OpenCV.
 
-- **6.5× faster** detection engine based on [ArUco Nano](https://github.com/rmsalinas/aruco_nano)
-- **Up to 2.7× faster** dictionary identification via O(1) hash-map lookup
 - **Simpler API** — one function call, results in a single `vector<FiducialMarker>` (no parallel vectors)
 - **Single public header** — `#include "aruco2.hpp"` is all you need; no extra headers to hunt down
-- **Safer defaults** — `errorCorrectionRate=0` instead of the legacy 0.6 that may causes false positives
-- **Multi-dictionary** detection in one pass
-- **Boards and diamonds** based on [ChArUco2](https://github.com/rmsalinas/charuco2) — double the marker density, twice the corners at 75% occlusion
-- **Fractal markers** — nested multi-scale design gives many more corners for pose estimation, robust to heavy occlusion
-- **RArUco markers** ([arXiv:2607.13830](https://arxiv.org/abs/2607.13830)) — recursive design nesting the same marker ID within its own bit cells; maintains a single ID across all scales for robust, long-range UAV landing pads (independent of center visibility)
+- **6.5× more efficient** detection engine based on [ArUco Nano](https://github.com/rmsalinas/aruco_nano)
 - **[OpenCL acceleration](#opencl--gpu-acceleration)** for markers ([SSRN 7031769](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=7031769)) 
+- **Fractal markers** — nested multi-scale design gives many more corners for pose estimation, robust to heavy occlusion
+- **Boards and diamonds** based on [ChArUco2](https://github.com/rmsalinas/charuco2) — double the marker density, twice the corners at 75% occlusion
+- **RArUco markers** ([arXiv:2607.13830](https://arxiv.org/abs/2607.13830)) — recursive design nesting the same marker ID within its own bit cells; maintains a single ID across all scales for robust, long-range UAV landing pads (independent of center visibility)
+- **Up to 2.7× faster** dictionary identification via O(1) hash-map lookup
 
 ---
 
