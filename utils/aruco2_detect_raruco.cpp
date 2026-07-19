@@ -1,8 +1,24 @@
-// Detect RAruco markers in a single image, folder of images, or video file.
-//
-// Usage:
-//   aruco2_detect_raruco <input_path> [-dict=17] [-show=true] [-save=<output_path>] [-fps=2.0]
-//
+/**
+ * @file aruco2_detect_raruco.cpp
+ * @brief Utility to detect RAruco markers in images, directories, or video files.
+ *
+ * This program detects RAruco markers in a single image file, a folder of image files,
+ * or a video file. It supports drawing markers on the output and optionally saving
+ * the result to a file (single image, directory of images, or a video file).
+ *
+ * Usage:
+ *   ./aruco2_detect_raruco <input_path> [options]
+ *
+ * Positional Arguments:
+ *   @path          Path to the input image file, directory, or video file
+ *
+ * Options:
+ *   -dict=<int>    Dictionary ID (default: 17 = DICT_APRILTAG_16h5)
+ *   -show          Show results in a window (default: true; ESC to quit)
+ *   -save=<str>    Path to write output (file path for image/video, folder for directory)
+ *   -fps=<float>   Output frame rate if saving a directory of images to video (default: 25.0)
+ *   --help         Show the help message
+ */
 #include "opencv2/objdetect/aruco2.hpp"
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>

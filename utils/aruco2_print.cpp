@@ -1,3 +1,22 @@
+/**
+ * @file aruco2_print.cpp
+ * @brief Utility to generate and save images of various ArUco2 markers and boards.
+ *
+ * This program generates and saves an image of a specific marker type, diamond,
+ * fractal marker, grid board, or RAruco marker to a specified output file.
+ *
+ * Usage:
+ *   ./aruco2_print <type> <out.png>
+ *
+ * Arguments:
+ *   type           Type of pattern to generate:
+ *                    m : Single standard fiducial marker
+ *                    d : Diamond marker
+ *                    f : Fractal marker
+ *                    b : Grid board
+ *                    r : RAruco marker
+ *   out.png        Output file path to save the generated image
+ */
 #include "opencv2/objdetect/aruco2.hpp"
 #include <iostream>
 #include <opencv2/highgui.hpp>

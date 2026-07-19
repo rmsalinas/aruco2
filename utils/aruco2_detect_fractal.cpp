@@ -1,13 +1,25 @@
-// Detect ArUco2 fractal markers in every image of a folder.
-// Optionally runs solvePnP and draws coordinate axes when a calibration file is given.
-// The fractal object coordinate system is centred at (0,0,0); the outer marker spans
-// [-ms/2, +ms/2] on X and Y, with Z pointing toward the camera.
-//
-// Usage:
-//   aruco2_detect_fractal <image_folder> [-ftype=2] [-calib=calibration.yaml] [-ms=0.10]
-//                         [-show=true] [-save=<output_folder>]
-//
-// ftype: 0=FRACTAL_2L_6  1=FRACTAL_3L_6  2=FRACTAL_4L_6  3=FRACTAL_5L_6
+/**
+ * @file aruco2_detect_fractal.cpp
+ * @brief Utility to detect ArUco2 fractal markers in images.
+ *
+ * This program processes a folder of images, detects ArUco2 fractal markers,
+ * and highlights them. If a camera calibration file is provided, it estimates
+ * the pose (solvePnP) and draws the coordinate axes centered on the outer marker.
+ *
+ * Usage:
+ *   ./aruco2_detect_fractal <image_folder> [options]
+ *
+ * Positional Arguments:
+ *   @path          Folder containing images to process (jpg/jpeg/png)
+ *
+ * Options:
+ *   -ftype=<int>   Fractal type: 0=2L_6, 1=3L_6, 2=4L_6, 3=5L_6 (default: 1)
+ *   -calib=<str>   Path to the calibration file produced by aruco2_camera_calibration
+ *   -ms=<float>    Physical side length of the outer marker in meters (default: 0.10)
+ *   -show          Show each detection result (default: true; press any key for next, ESC to quit)
+ *   -save=<str>    Optional folder to save the annotated images
+ *   --help         Show the help message
+ */
 #include "opencv2/objdetect/aruco2.hpp"
 #include <opencv2/calib3d.hpp>
 #include <opencv2/highgui.hpp>

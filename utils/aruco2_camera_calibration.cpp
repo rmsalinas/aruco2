@@ -1,5 +1,27 @@
-// Camera calibration using the aruco2 Board.
-// Usage: camera_calibration <image_folder> [-w=9] [-h=5] [-dict=21] [-ms=0.05] [-o=calibration.yaml] [-show=false]
+/**
+ * @file aruco2_camera_calibration.cpp
+ * @brief Camera calibration utility using an ArUco2 GridBoard.
+ *
+ * This program detects an ArUco2 board in a set of calibration images
+ * and computes the camera intrinsic parameters (camera matrix and distortion coefficients).
+ * The resulting calibration data is saved to a YAML or XML file, which can then be
+ * used for pose estimation by other utilities.
+ *
+ * Usage:
+ *   ./aruco2_camera_calibration <image_folder> [options]
+ *
+ * Positional Arguments:
+ *   @path         Folder containing the calibration images (default: ".")
+ *
+ * Options:
+ *   -w=<int>      Number of marker columns in the board (default: 9)
+ *   -h=<int>      Number of marker rows in the board (default: 5)
+ *   -dict=<int>   Dictionary ID (default: 21 = DICT_ARUCO_MIP_36h12)
+ *   -ms=<float>   Physical marker side length in meters (default: 0.05)
+ *   -o=<string>   Output calibration file path (default: "calibration.yaml")
+ *   -show         If true, shows each detection result in a window (default: false)
+ *   --help        Show the help message
+ */
 #include "opencv2/objdetect/aruco2.hpp"
 #include <opencv2/calib3d.hpp>
 #include <opencv2/highgui.hpp>

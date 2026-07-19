@@ -1,9 +1,26 @@
-// Detect ArUco2 markers in every image of a folder.
-// Optionally runs solvePnP and draws coordinate axes when a calibration file is given.
-//
-// Usage:
-//   aruco2_detect_markers <image_folder> [-dict=21] [-calib=calibration.yaml] [-ms=0.05]
-//                         [-show=true] [-save=<output_folder>]
+/**
+ * @file aruco2_detect_markers.cpp
+ * @brief Utility to detect ArUco2 fiducial markers in an image or directory of images.
+ *
+ * This program detects ArUco2 fiducial markers in a single image or all images within
+ * a folder, uses OpenCL acceleration if available, and highlights detected markers.
+ * If a camera calibration file is provided, it estimates the pose of each marker
+ * (solvePnP) and draws the coordinate axes.
+ *
+ * Usage:
+ *   ./aruco2_detect_markers <image_or_folder> [options]
+ *
+ * Positional Arguments:
+ *   @path          Path to a single image or folder with images (jpg/jpeg/png)
+ *
+ * Options:
+ *   -dict=<int>    Dictionary ID (default: 21 = DICT_ARUCO_MIP_36h12)
+ *   -calib=<str>   Path to the calibration file produced by aruco2_camera_calibration
+ *   -ms=<float>    Physical marker side length in meters (default: 0.05)
+ *   -show          Show each detection result (default: true; press any key for next, ESC to quit)
+ *   -save=<str>    Optional folder to save the annotated images
+ *   --help         Show the help message
+ */
 #include "opencv2/objdetect/aruco2.hpp"
 #include <opencv2/calib3d.hpp>
 #include <opencv2/highgui.hpp>

@@ -1,10 +1,25 @@
-// Detect ArUco2 diamond markers in every image of a folder.
-// Optionally runs solvePnP and draws coordinate axes when a calibration file is given.
-// The diamond getSolvePnpPoints returns 9 points (3×3 corner grid spanning 2×markerSize).
-//
-// Usage:
-//   aruco2_detect_diamonds <image_folder> [-dict=21] [-calib=calibration.yaml] [-ms=0.05]
-//                          [-show=true] [-save=<output_folder>]
+/**
+ * @file aruco2_detect_diamonds.cpp
+ * @brief Utility to detect ArUco2 ChArUco-like diamond markers in images.
+ *
+ * This program processes a folder of images, detects ArUco2 diamond markers,
+ * and highlights them. If a camera calibration file is provided, it estimates
+ * the pose of each diamond (solvePnP) and draws the coordinate axes.
+ *
+ * Usage:
+ *   ./aruco2_detect_diamonds <image_folder> [options]
+ *
+ * Positional Arguments:
+ *   @path          Folder containing images to process (jpg/jpeg/png)
+ *
+ * Options:
+ *   -dict=<int>    Dictionary ID (default: 21 = DICT_ARUCO_MIP_36h12)
+ *   -calib=<str>   Path to the calibration file produced by aruco2_camera_calibration
+ *   -ms=<float>    Physical side length of one constituent marker in meters (default: 0.05)
+ *   -show          Show each detection result (default: true; press any key for next, ESC to quit)
+ *   -save=<str>    Optional folder to save the annotated images
+ *   --help         Show the help message
+ */
 #include "opencv2/objdetect/aruco2.hpp"
 #include <opencv2/calib3d.hpp>
 #include <opencv2/highgui.hpp>
