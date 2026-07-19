@@ -9,7 +9,7 @@ A proposed replacement for the ArUco module in OpenCV (fully compatible and comp
 - **6.5× more efficient** detection engine based on [ArUco Nano](https://github.com/rmsalinas/aruco_nano)
 - **[OpenCL acceleration](#opencl--gpu-acceleration)** for markers ([SSRN 7031769](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=7031769)) 
 - **Fractal markers** — [nested multi-scale design](https://ieeexplore.ieee.org/document/8890613/) gives many more corners for pose estimation, robust to heavy occlusion 
-- **Boards and diamonds** based on [ChArUco2](https://github.com/rmsalinas/charuco2) — double the marker density, twice the corners at 75% occlusion
+- **Boards and diamonds** based on [ChArUco2](https://www.sciencedirect.com/science/article/pii/S2352711026003249) — double the marker density, twice the corners at 75% occlusion
 - **RArUco markers** ([arXiv:2607.13830](https://arxiv.org/abs/2607.13830)) — recursive design nesting the same marker ID within its own bit cells; maintains a single ID across all scales for robust, long-range UAV landing pads (independent of center visibility)
 - **Up to 2.7× faster** dictionary identification via O(1) hash-map lookup
 
@@ -246,7 +246,7 @@ Coordinate conventions (all target types share the same handedness):
 
 ### Board generation and detection
 
-Grid boards follow the [ChArUco2](https://github.com/rmsalinas/charuco2) design: every square carries a marker — standard markers on black squares and inverted markers on white squares — doubling the marker density compared to standard ChArUco.
+Grid boards follow the [ChArUco2](https://www.sciencedirect.com/science/article/pii/S2352711026003249) design: every square carries a marker — standard markers on black squares and inverted markers on white squares — doubling the marker density compared to standard ChArUco.
 
 > [!TIP]
 > A pre-generated board image is provided in the repository root as [board9x5.png](board9x5.png) (`DICT_ARUCO_MIP_36h12`, 9×5 grid). You can print or use this file directly for testing without having to generate it yourself.
@@ -491,11 +491,7 @@ Key advantages over the standard OpenCV ArUco detector:
 
 ### Boards and diamonds — based on ChArUco2
 
-The board and diamond design is based on [ChArUco2](https://github.com/rmsalinas/charuco2),
-described in:
-
-> R. Muñoz-Salinas et al., *"ChArUco2: Enhanced Calibration Boards with Dual Black-and-White
-> Marker Detection"*, SoftwareX, submitted.
+The board and diamond design is based on [ChArUco2](https://www.sciencedirect.com/science/article/pii/S2352711026003249)
 
 Key advantages over standard OpenCV ChArUco:
 
