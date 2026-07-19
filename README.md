@@ -6,7 +6,7 @@ A proposed replacement for the ArUco module in OpenCV (fully compatible and comp
 
 - **Simpler API** — one function call, results in a single `vector<FiducialMarker>` (no parallel vectors)
 - **Single public header** — `#include "aruco2.hpp"` is all you need; no extra headers to hunt down
-- **6.5× more efficient** detection engine based on [ArUco Nano](https://github.com/rmsalinas/aruco_nano)
+- **6.5× more efficient** detection engine based on [ArUco Nano](https://www.sciencedirect.com/science/article/pii/S2352711026001822)
 - **[OpenCL acceleration](#opencl--gpu-acceleration)** for markers ([SSRN 7031769](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=7031769)) 
 - **Fractal markers** — [nested multi-scale design](https://ieeexplore.ieee.org/document/8890613/) gives many more corners for pose estimation, robust to heavy occlusion 
 - **Boards and diamonds** based on [ChArUco2](https://www.sciencedirect.com/science/article/pii/S2352711026003249) — double the marker density, twice the corners at 75% occlusion
@@ -454,7 +454,7 @@ export OPENCV_OPENCL_DEVICE=AMD
 
 ### Marker detection — based on ArUco Nano
 
-The marker detector is based on [ArUco Nano](https://github.com/rmsalinas/aruco_nano), a
+The marker detector is based on [ArUco Nano](https://www.sciencedirect.com/science/article/pii/S2352711026001822), a
 high-performance single-header detector described in:
 
 > R. Muñoz-Salinas et al., *"ArUco Nano: a simpler, faster, and more reliable fiducial marker
