@@ -7,7 +7,7 @@ A proposed replacement for the ArUco module in OpenCV (fully compatible and comp
 - **Simpler API** — one function call, results in a single `vector<FiducialMarker>` (no parallel vectors)
 - **Single public header** — `#include "aruco2.hpp"` is all you need; no extra headers to hunt down
 - **6.5× more efficient** detection engine based on [ArUco Nano](https://www.sciencedirect.com/science/article/pii/S2352711026001822)
-- **[OpenCL acceleration](#opencl--gpu-acceleration)** for markers ([SSRN 7031769](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=7031769)) 
+- **[OpenCL acceleration](#opencl--gpu-acceleration)**  ([SSRN 7031769](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=7031769)) 
 - **Fractal markers** — [nested multi-scale design](https://ieeexplore.ieee.org/document/8890613/) gives many more corners for pose estimation, robust to heavy occlusion 
 - **Boards and diamonds** based on [ChArUco2](https://www.sciencedirect.com/science/article/pii/S2352711026003249) — double the marker density, twice the corners at 75% occlusion
 - **RArUco markers** ([arXiv:2607.13830](https://arxiv.org/html/2607.13830v2)) — recursive design nesting the same marker ID within its own bit cells; maintains a single ID across all scales for robust, long-range UAV landing pads (independent of center visibility)
@@ -389,7 +389,7 @@ The detection algorithm uses a border-sampling strategy to read bit colors only 
 
 cv::Mat image = cv::imread("scene.jpg");
 
-// Detect RArUco markers (automatically configures grid bit-sampling and dual color mode)
+// Detect RArUco markers (pass cv::UMat for OpenCL GPU acceleration)
 auto markers = cv::aruco2::detectRArucoMarkers(image, cv::aruco2::DICT_APRILTAG_16h5);
 
 for (const auto &m : markers) {
@@ -405,10 +405,10 @@ for (const auto &m : markers) {
 
 ### OpenCL / GPU Acceleration
 
-`aruco2` features a high-performance, fully GPU-accelerated detection pipeline using OpenCL. Key stages—including image thresholding, connected component labeling, corner extraction, candidate identification, and subpixel corner refinement—are run entirely on the GPU.
+`aruco2` features a high-performance, fully GPU-accelerated detection pipeline using OpenCL for fiducial markers, boards, diamonds, fractals, and RArUco markers. Key stages—including image thresholding, connected component labeling, corner extraction, candidate identification, and subpixel corner refinement—are run entirely on the GPU.
 
 #### How to use it
-To trigger GPU acceleration, simply pass the input image as a `cv::UMat` instead of `cv::Mat`. The library detects the input type and automatically routes it to the OpenCL pipeline.
+To trigger GPU acceleration, simply pass the input image as a `cv::UMat` instead of `cv::Mat` to functions like `detectFiducialMarkers()` or `detectRArucoMarkers()`. The library detects the input type and automatically routes it to the OpenCL pipeline.
 
 ```cpp
 #include "aruco2.hpp"
@@ -425,8 +425,9 @@ if (cv::ocl::useOpenCL()) {
     cv::UMat u_gray;
     gray.copyTo(u_gray);
 
-    // Runs the entire detection pipeline on the GPU
+    // Runs the entire detection pipeline on the GPU (works with detectRArucoMarkers as well)
     auto markers = cv::aruco2::detectFiducialMarkers(u_gray);
+    // auto rarucoMarkers = cv::aruco2::detectRArucoMarkers(u_gray, cv::aruco2::DICT_APRILTAG_16h5);
 
     for (const auto &m : markers) {
         std::cout << "GPU Detected ID: " << m.id << "\n";
@@ -437,7 +438,7 @@ if (cv::ocl::useOpenCL()) {
 ```
 
 #### Selecting a Specific Device
-OpenCV dynamically compiles the OpenCL kernels (`opencl/arucodetect.cl`) at runtime. You can specify which OpenCL device to run on (e.g., a discrete GPU vs. an integrated GPU) by setting the `OPENCV_OPENCL_DEVICE` environment variable before running your application.
+OpenCV dynamically compiles the OpenCL kernels (`opencl/aruco2detect.cl`) at runtime. You can specify which OpenCL device to run on (e.g., a discrete GPU vs. an integrated GPU) by setting the `OPENCV_OPENCL_DEVICE` environment variable before running your application.
 
 For example:
 ```bash

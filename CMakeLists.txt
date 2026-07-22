@@ -32,11 +32,11 @@ add_custom_command(
     OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/opencl_kernels_aruco2.hpp"
            "${CMAKE_CURRENT_BINARY_DIR}/opencl_kernels_aruco2.cpp"
     COMMAND ${CMAKE_COMMAND}
-            "-DCL_PATH=${CMAKE_CURRENT_SOURCE_DIR}/opencl/arucodetect.cl"
+            "-DCL_PATH=${CMAKE_CURRENT_SOURCE_DIR}/opencl/aruco2detect.cl"
             "-DHPP_PATH=${CMAKE_CURRENT_BINARY_DIR}/opencl_kernels_aruco2.hpp"
             "-DCPP_PATH=${CMAKE_CURRENT_BINARY_DIR}/opencl_kernels_aruco2.cpp"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/utils/cl2cpp.cmake"
-    DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/opencl/arucodetect.cl"
+    DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/opencl/aruco2detect.cl"
             "${CMAKE_CURRENT_SOURCE_DIR}/utils/cl2cpp.cmake"
     COMMENT "Generating C++ wrappers from OpenCL kernels"
     VERBATIM

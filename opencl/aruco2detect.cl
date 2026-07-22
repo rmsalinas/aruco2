@@ -3,7 +3,7 @@
 // of this distribution and at http://opencv.org/license.html
 
 /**
- * @file arucodetect.cl
+ * @file aruco2detect.cl
  * @brief OpenCL kernels for GPU-accelerated ArUco marker detection.
  * @version 1.0
  * @author Francisco J. Romero-Ramirez
