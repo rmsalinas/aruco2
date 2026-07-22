@@ -1,27 +1,12 @@
-/**
- * @file aruco2_detect_raruco.cpp
- * @brief Utility to detect RAruco markers in images, directories, or video files.
- *
- * This program detects RAruco markers in a single image file, a folder of image files,
- * or a video file. It supports drawing markers on the output and optionally saving
- * the result to a file (single image, directory of images, or a video file).
- *
- * Usage:
- *   ./aruco2_detect_raruco <input_path> [options]
- *
- * Positional Arguments:
- *   @path          Path to the input image file, directory, or video file
- *
- * Options:
- *   -dict=<int>    Dictionary ID (default: 17 = DICT_APRILTAG_16h5)
- *   -show          Show results in a window (default: true; ESC to quit)
- *   -save=<str>    Path to write output (file path for image/video, folder for directory)
- *   -fps=<float>   Output frame rate if saving a directory of images to video (default: 25.0)
- *   --help         Show the help message
- */
+// Detect RAruco markers in a single image, folder of images, or video file.
+//
+// Usage:
+//   aruco2_detect_raruco <input_path> [-dict=17] [-show=true] [-save=<output_path>] [-fps=2.0]
+//
 #include "opencv2/objdetect/aruco2.hpp"
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
+#include <opencv2/core/ocl.hpp>
 #include <opencv2/videoio.hpp>
 #include <filesystem>
 #include <iostream>
@@ -154,10 +139,24 @@ void processDirectory(const fs::path& dirPath, cv::aruco2::DictionaryType dict, 
             continue;
         }
 
-        auto start = std::chrono::high_resolution_clock::now();
-        auto markers = cv::aruco2::detectRArucoMarkers(image, dict);
-        auto end = std::chrono::high_resolution_clock::now();
-        double elapsedMs = std::chrono::duration<double, std::milli>(end - start).count();
+        cv::Mat gray;
+        if (image.channels() == 3) {
+            cv::cvtColor(image, gray, cv::COLOR_BGR2GRAY);
+        } else {
+            gray = image;
+        }
+
+        cv::UMat u_gray;
+        std::vector<cv::aruco2::FiducialMarker> markers;
+        auto t_start = std::chrono::high_resolution_clock::now();
+        if (cv::ocl::useOpenCL()) {
+            gray.copyTo(u_gray); // Transfer img to GPU
+            markers = cv::aruco2::detectRArucoMarkers(u_gray, dict);
+        } else {
+            markers = cv::aruco2::detectRArucoMarkers(gray, dict);
+        }
+        auto t_end = std::chrono::high_resolution_clock::now();
+        double elapsedMs = std::chrono::duration<double, std::milli>(t_end - t_start).count();
         tracker.add(elapsedMs);
 
         cv::aruco2::drawFiducialMarkers(image, markers, cv::Scalar(255, 255, 0));
@@ -241,10 +240,24 @@ void processVideo(const fs::path& videoPath, cv::aruco2::DictionaryType dict, bo
     while (cap.read(frame)) {
         if (frame.empty()) break;
 
-        auto start = std::chrono::high_resolution_clock::now();
-        auto markers = cv::aruco2::detectRArucoMarkers(frame, dict);
-        auto end = std::chrono::high_resolution_clock::now();
-        double elapsedMs = std::chrono::duration<double, std::milli>(end - start).count();
+        cv::Mat gray;
+        if (frame.channels() == 3) {
+            cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
+        } else {
+            gray = frame;
+        }
+
+        cv::UMat u_gray;
+        std::vector<cv::aruco2::FiducialMarker> markers;
+        auto t_start = std::chrono::high_resolution_clock::now();
+        if (cv::ocl::useOpenCL()) {
+            gray.copyTo(u_gray); // Transfer img to GPU
+            markers = cv::aruco2::detectRArucoMarkers(u_gray, dict);
+        } else {
+            markers = cv::aruco2::detectRArucoMarkers(gray, dict);
+        }
+        auto t_end = std::chrono::high_resolution_clock::now();
+        double elapsedMs = std::chrono::duration<double, std::milli>(t_end - t_start).count();
         tracker.add(elapsedMs);
 
         cv::aruco2::drawFiducialMarkers(frame, markers, cv::Scalar(255, 255, 0));

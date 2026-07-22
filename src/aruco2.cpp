@@ -433,7 +433,8 @@ std::vector<FiducialMarker> MarkerDetector::detect(const cv::UMat &img, const st
                     (int)dictInstance.bytesList.rows, dictInstance.markerSize,
                     (int)(dictInstance.maxCorrectionBits * params.errorCorrectionRate),
                     (float)params.maxErroneousBitsInBorderRate,
-                    (uchar)params.detectColorMode, max_attempts,
+                    (uchar)params.detectColorMode,
+                    (uchar)params.gridBitSampling, max_attempts,
                     (unsigned int)seed,
                     cv::ocl::KernelArg::PtrReadOnly(u_candidate_matched),
                     cv::ocl::KernelArg::PtrWriteOnly(u_identified_ids),
@@ -513,10 +514,32 @@ std::vector<FiducialMarker> MarkerDetector::detect(const cv::UMat &img, const st
                 if (DetectedMarkers[i].id == DetectedMarkers[j].id) {
                     auto res =
                         isInto(DetectedMarkers[i].corners, DetectedMarkers[j].corners);
-                    if (res == 1)
-                        toRemove[i] = true;
-                    else if (res == 2)
-                        toRemove[j] = true;
+                    if (res != 0) {
+                        float pixDistAvr = 0;
+                        for (int c = 0; c < 4; c++) {
+                            pixDistAvr += cv::norm(DetectedMarkers[i].corners[c] -
+                                                   DetectedMarkers[j].corners[c]);
+                        }
+                        pixDistAvr /= 4.0f;
+
+                        Dictionary dictInstance = getPredefinedDictionary(DetectedMarkers[i].dictionary);
+                        int mSize = dictInstance.markerSize > 0 ? dictInstance.markerSize : 6;
+
+                        double avrgLen = 0;
+                        for (int c = 0; c < 4; c++) {
+                            avrgLen += cv::norm(DetectedMarkers[i].corners[c] -
+                                                DetectedMarkers[i].corners[(c + 1) % 4]);
+                        }
+                        avrgLen /= 4.0;
+                        avrgLen /= mSize;
+
+                        if (pixDistAvr > avrgLen) continue;
+
+                        if (res == 1)
+                            toRemove[i] = true;
+                        else if (res == 2)
+                            toRemove[j] = true;
+                    }
                 }
             }
         }

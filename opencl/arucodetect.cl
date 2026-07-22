@@ -531,7 +531,8 @@ identify_candidates(__global const uchar *img, int step, int width, int height,
                     __global const ulong *dict_bytes, int num_markers,
                     int marker_size, int max_correction_bits,
                     float max_erroneous_bits_in_border_rate,
-                    uchar detect_color_mode, int max_attempts, uint seed,
+                    uchar detect_color_mode, uchar gridBitSampling,
+                    int max_attempts, uint seed,
                     __global const int *candidate_matched,
                     __global int *out_ids, __global int *out_rotations) {
   int thread_id = get_global_id(0);
@@ -614,17 +615,45 @@ identify_candidates(__global const uchar *img, int step, int width, int height,
 
   for (int r = 0; r < S; r++) {
     for (int c = 0; c < S; c++) {
-      float u = (c + 0.5f) / S;
-      float v = (r + 0.5f) / S;
-      float px = (a_h * u + b_h * v + c_h) / (g_h * u + h_h * v + 1.0f);
-      float py = (d_h * u + e_h * v + f_h) / (g_h * u + h_h * v + 1.0f);
-      float val = get_subpixel_value(img, step, width, height, px, py);
-      int rounded = (int)(val + 0.5f);
-      if (rounded < 0)
-        rounded = 0;
-      if (rounded > 255)
-        rounded = 255;
-      grid_uchar[r * S + c] = (uchar)rounded;
+      if (!gridBitSampling) {
+        float u = (c + 0.5f) / S;
+        float v = (r + 0.5f) / S;
+        float px = (a_h * u + b_h * v + c_h) / (g_h * u + h_h * v + 1.0f);
+        float py = (d_h * u + e_h * v + f_h) / (g_h * u + h_h * v + 1.0f);
+        float val = get_subpixel_value(img, step, width, height, px, py);
+        int rounded = (int)(val + 0.5f);
+        if (rounded < 0)
+          rounded = 0;
+        if (rounded > 255)
+          rounded = 255;
+        grid_uchar[r * S + c] = (uchar)rounded;
+      }
+      else {
+        // evaluate a grid of points (rows+cols) into each bit
+        float sum = 0.0f;
+        float intrabitIncR = 1.0f / (float)(S * S);
+        float intrabitIncC = 1.0f / (float)(S * S);
+
+        for (int sr = 0; sr < S; sr++) {
+          for (int sc = 0; sc < S; sc++) {
+            // Only proceed if it is a border element (first row, last row, first col, or last col)
+            if (sr == 0 || sr == S - 1 || sc == 0 || sc == S - 1) {
+              float u = ((float)c / (float)S) + (0.5f + (float)sc) * intrabitIncR;
+              float v = ((float)r / (float)S) + (0.5f + (float)sr) * intrabitIncC;
+              float px = (a_h * u + b_h * v + c_h) / (g_h * u + h_h * v + 1.0f);
+              float py = (d_h * u + e_h * v + f_h) / (g_h * u + h_h * v + 1.0f);
+              sum += get_subpixel_value(img, step, width, height, px, py);
+            }
+          }
+        }
+
+        int rounded = (int)(sum / (float)(2 * S + 2 * S - 4) + 0.5f);
+        if (rounded < 0)
+          rounded = 0;
+        if (rounded > 255)
+          rounded = 255;
+        grid_uchar[r * S + c] = (uchar)rounded;
+      }
     }
   }
 
