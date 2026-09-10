@@ -395,11 +395,6 @@ auto markers = cv::aruco2::detectRArucoMarkers(image, cv::aruco2::DICT_APRILTAG_
 for (const auto &m : markers) {
     std::cout << "Detected RArUco marker ID=" << m.id << "\n";
     
-    // Perform pose estimation using the standard solvePnP points helper
-    cv::Mat imgPts, objPts, rvec, tvec;
-    // Pass the estimated physical size of this specific marker level (e.g. 30 cm)
-    cv::aruco2::getSolvePnpPoints(m, objPts, imgPts, 0.30f);
-    // cv::solvePnP(objPts, imgPts, cameraMatrix, distCoeffs, rvec, tvec);
 }
 ```
 
